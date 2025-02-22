@@ -29,14 +29,14 @@ def main():
 
     bpm_input_box = InputBox(width // 2 - 100, spacing * 1 - 40, 200, 30, "BPM")
     start_time_input_box = InputBox(width // 2 - 100, spacing * 2 - 40, 200, 30, "Starting Time")
-    end_time_input_box = InputBox(width // 2 - 100, spacing * 3 - 40, 200, 30, "Ending Time")
+    song_name_input_box = InputBox(width // 2 - 100, spacing * 3 - 40, 200, 30, "Song Name")
     link_input_box = InputBox(width // 2 - 100, spacing * 4 - 40, 200, 30, "YouTube Link")
     start_button = Button(
         width // 2 - 100, spacing * 5 - 40, 200, 30, "Start",
         lambda: start_action(
             bpm_input_box,
             start_time_input_box,
-            end_time_input_box,
+            song_name_input_box,
             link_input_box,
             screen,
             width,
@@ -47,7 +47,7 @@ def main():
     stat_button = Button(width // 2 - 100, spacing * 6 - 40, 200, 30, "Stat", display_statistics)
 
     input_boxes = [
-        bpm_input_box, start_time_input_box, end_time_input_box, link_input_box, start_button, stat_button
+        bpm_input_box, start_time_input_box, song_name_input_box, link_input_box, start_button, stat_button
     ]
 
     running = True
