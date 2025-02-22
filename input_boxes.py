@@ -41,17 +41,24 @@ class InputBox:
         screen.blit(self.label_surface, (self.rect.x, self.rect.y - 20))
 
 class Button:
-    def __init__(self, x, y, w, h, text=''):
+    def __init__(self, x, y, w, h, text='', action=None):
         self.rect = pygame.Rect(x, y, w, h)
         self.color = (0, 255, 0)
         self.text = text
         self.txt_surface = FONT.render(text, True, BLACK)
         self.active = False
+        self.action = action
 
     def handle_event(self, event):
         # Check if the button was clicked
         if event.type == pygame.MOUSEBUTTONDOWN:
-            return self.rect.collidepoint(event.pos)
+            print("HI!")
+            if self.rect.collidepoint(event.pos):
+                if self.action is not None:
+                    self.action() 
+                return True
+        return False
+        
 
     def draw(self, screen):
         # Fill the button with the color

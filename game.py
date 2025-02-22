@@ -2,7 +2,8 @@ import pygame
 from input_boxes import InputBox, Button
 from video_player import play_video
 import cv2
-
+from dance_stats import display_statistics
+from shared import *
 pygame.init()
 pygame.mixer.init()
 
@@ -18,17 +19,22 @@ pygame.display.set_caption('Just Dance')
 
 FONT = pygame.font.Font(None, 16)
 
+
 def main():
     """Display input fields"""
-    total_elements = 5
+    set_detection_events([(100, True), (200, False), (300, True)])
+    total_elements = 6
     spacing = height // total_elements - 1
+
 
     input_boxes = [
         InputBox(width // 2 - 100, spacing * 1 - 40, 200, 30, "BPM"),
         InputBox(width // 2 - 100, spacing * 2 - 40, 200, 30, "Starting Time"),
         InputBox(width // 2 - 100, spacing * 3 - 40, 200, 30, "Ending Time"),
         InputBox(width // 2 - 100, spacing * 4 - 40, 200, 30, "YouTube Link"),
-        Button(width // 2 - 100, spacing * 5 - 40, 200, 30, "Start")
+        Button(width // 2 - 100, spacing * 5 - 40, 200, 30, "Start", lambda: play_video(screen, width, height)),
+        Button(width // 2 - 100, spacing * 6 - 40, 200, 30, "Stat", display_statistics)
+
     ]
 
     running = True
@@ -44,11 +50,10 @@ def main():
                 running = False
             for box in input_boxes:
                 box.handle_event(event)
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                for box in input_boxes:
-                    if isinstance(box, Button) and box.handle_event(event):
-                        play_video(screen, width, height)
-                        running = False
+            #if event.type == pygame.MOUSEBUTTONDOWN:
+                #for box in input_boxes:
+                    #if isinstance(box, Button) and box.handle_event(event):
+                        #pass
 
         pygame.display.flip()
 

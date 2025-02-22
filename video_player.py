@@ -2,6 +2,7 @@ import cv2
 import pygame
 import time
 from audio_player import play_audio_from
+from shared import *
 
 # Open the video file using OpenCV
 cap = cv2.VideoCapture('hell.mp4')
@@ -28,6 +29,7 @@ def play_video(screen, width, height):
     video_offset = -0.05  # Adjust this offset for better audio-video sync
     start_time = time.time()
     play_audio_from((time.time() - start_time) * 1000)
+    face_detection_events = []
     prev_time = 0
     while cap.isOpened():
         elapsed_time = time.time() - start_time - video_offset
@@ -55,6 +57,7 @@ def play_video(screen, width, height):
         screen.blit(fps_text, (10, 10))  # Position the FPS at the top-left corner
         # Detect face and draw a square if detected
         face_detected, _, _ = detect_face()
+        face_detection_events.append((elapsed_time * 1000, face_detected))
         if face_detected:
             pygame.draw.rect(screen, (255, 0, 0), (width//2 - 25, height//2 - 25, 50, 50), 3)  # Red square
 
@@ -70,4 +73,7 @@ def play_video(screen, width, height):
 
     cap.release()
     webcam.release()
-    pygame.quit()
+    print(face_detection_events)
+    set_detection_events(face_detection_events)
+    return
+
