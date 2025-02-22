@@ -40,6 +40,10 @@ class InputBox:
         screen.blit(self.txt_surface, (self.rect.x + 5, text_y))
         screen.blit(self.label_surface, (self.rect.x, self.rect.y - 20))
 
+    def get_value(self):
+        return self.text
+
+
 class Button:
     def __init__(self, x, y, w, h, text='', action=None):
         self.rect = pygame.Rect(x, y, w, h)
