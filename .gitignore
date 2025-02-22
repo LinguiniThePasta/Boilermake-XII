@@ -1,1 +1,7 @@
 venv
+/yolo11n.pt
+/yolo11n-pose.pt
+/yolov8n.pt
+/sam2.1_t.pt
+/FastSAM-s.pt
+/input.mp4
