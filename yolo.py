@@ -2,7 +2,7 @@ import cv2
 import time
 from ultralytics import YOLO
 
-model = YOLO("yolo11n-pose.pt")
+model = YOLO("yolo11n.pt")
 
 # Initialize webcam
 cap = cv2.VideoCapture(0)
@@ -14,8 +14,9 @@ if not cap.isOpened():
 
 # Variables to calculate FPS
 prev_time = 0
+frame_count = 0
 
-while True:
+while frame_count <= 300:
     # Capture frame-by-frame
     ret, frame = cap.read()
     if not ret:
@@ -23,7 +24,7 @@ while True:
         break
 
     # Perform inference
-    results = model(frame, device='cpu')
+    results = model(frame, device='cpu', tracker="bytetrack.yaml")
 
     # Get current time
     current_time = time.time()
