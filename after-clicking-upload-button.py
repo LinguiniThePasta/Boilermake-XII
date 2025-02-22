@@ -11,7 +11,7 @@ from ultralytics import YOLO
 
 def get_length(input_video):
     result = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', input_video], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    return float(result.stdout)
+    return int(result.stdout)
 
 def upload_video(bpm, start_beat, songname, url):
     model = YOLO("yolo11n-pose.pt")
