@@ -1,8 +1,16 @@
+from ultralytics import YOLO
+import torch
+import torchvision
 import cv2
 import time
-from ultralytics import YOLO
 
-model = YOLO("yolo11n.pt")
+print(torch.cuda.is_available())
+print(torch.cuda.device_count())
+print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No CUDA GPU detected")
+print("Torchvision Version:", torchvision.__version__)
+print("PyTorch Version:", torch.__version__)
+
+model = YOLO("yolo11n-pose.pt")
 
 # Initialize webcam
 cap = cv2.VideoCapture(0)
@@ -24,7 +32,7 @@ while frame_count <= 300:
         break
 
     # Perform inference
-    results = model(frame, device='cpu', tracker="bytetrack.yaml")
+    results = model(frame, device=0, tracker="bytetrack.yaml")
 
     # Get current time
     current_time = time.time()
