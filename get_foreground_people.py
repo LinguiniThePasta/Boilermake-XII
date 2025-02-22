@@ -63,59 +63,60 @@ class GetForegroundPersons():
         if not pose_results or not pose_results[0].keypoints or not pose_results[0].boxes:
             return np.array([])
 
-        boxes_np = pose_results[0].boxes.xyxy.cpu().numpy()
+        for person_result in pose_results:
+            boxes_np = person_result.boxes.xyxy.cpu().numpy()
 
-        for i, box in enumerate(boxes_np):
-            x_min, y_min, x_max, y_max = map(int, box)
+            for i, box in enumerate(boxes_np):
+                x_min, y_min, x_max, y_max = map(int, box)
 
-            # Clip box coordinates
-            x_min = max(0, x_min)
-            y_min = max(0, y_min)
-            x_max = min(frame_shape[1], x_max) # Use frame_shape for clipping
-            y_max = min(frame_shape[0], y_max)
+                # Clip box coordinates
+                x_min = max(0, x_min)
+                y_min = max(0, y_min)
+                x_max = min(frame_shape[1], x_max) # Use frame_shape for clipping
+                y_max = min(frame_shape[0], y_max)
 
-            box_depth_values = depth_map[y_min:y_max, x_min:x_max].flatten()
+                box_depth_values = depth_map[y_min:y_max, x_min:x_max].flatten()
 
-            if box_depth_values.size == 0:
-                continue
+                if box_depth_values.size == 0:
+                    continue
 
-            mean_box_depth = np.mean(box_depth_values) if box_depth_values.size > 0 else float('inf') # Initialize to infinity if empty
+                mean_box_depth = np.mean(box_depth_values) if box_depth_values.size > 0 else float('inf') # Initialize to infinity if empty
 
-            # Define background region (expand box by certain number of pixels in each direction)
-            bg_x_min = max(0, x_min - self.expand)
-            bg_y_min = max(0, y_min - self.expand)
-            bg_x_max = min(frame_shape[1], x_max + self.expand) # Use frame_shape for clipping
-            bg_y_max = min(frame_shape[0], y_max + self.expand)
+                # Define background region (expand box by certain number of pixels in each direction)
+                bg_x_min = max(0, x_min - self.expand)
+                bg_y_min = max(0, y_min - self.expand)
+                bg_x_max = min(frame_shape[1], x_max + self.expand) # Use frame_shape for clipping
+                bg_y_max = min(frame_shape[0], y_max + self.expand)
 
-            # Exclude the person's box region from the background region
-            bg_mask = np.ones(depth_map.shape[:2], dtype=bool)
-            bg_mask[y_min:y_max, x_min:x_max] = False # Mask out the person's box
-            bg_depth_values = depth_map[bg_y_min:bg_y_max, bg_x_min:bg_x_max][bg_mask[bg_y_min:bg_y_max, bg_x_min:bg_x_max]].flatten()
+                # Exclude the person's box region from the background region
+                bg_mask = np.ones(depth_map.shape[:2], dtype=bool)
+                bg_mask[y_min:y_max, x_min:x_max] = False # Mask out the person's box
+                bg_depth_values = depth_map[bg_y_min:bg_y_max, bg_x_min:bg_x_max][bg_mask[bg_y_min:bg_y_max, bg_x_min:bg_x_max]].flatten()
 
 
-            mean_bg_depth = np.mean(bg_depth_values) if bg_depth_values.size > 0 else float('inf') # Initialize to infinity if empty
+                mean_bg_depth = np.mean(bg_depth_values) if bg_depth_values.size > 0 else float('inf') # Initialize to infinity if empty
 
-            print(f"Box {i}: Mean Box Depth: {mean_box_depth:.2f}, Mean BG Depth: {mean_bg_depth:.2f}")
-            depth_ratio = 0
-            if mean_bg_depth != float('inf') and mean_bg_depth != 0:
-                depth_ratio = mean_box_depth / mean_bg_depth
-            print(f"Box {i}: Depth Ratio (Box/BG): {depth_ratio:.2f}")
+                print(f"Box {i}: Mean Box Depth: {mean_box_depth:.2f}, Mean BG Depth: {mean_bg_depth:.2f}")
+                depth_ratio = 0
+                if mean_bg_depth != float('inf') and mean_bg_depth != 0:
+                    depth_ratio = mean_box_depth / mean_bg_depth
+                print(f"Box {i}: Depth Ratio (Box/BG): {depth_ratio:.2f}")
 
-            if mean_box_depth != float('inf') and mean_bg_depth != float(
-                    'inf') and mean_box_depth >= 2 * mean_bg_depth:
-                print(f"Box {i}: Foreground - Condition met (Box Depth < 0.1 * BG Depth)")
-                filtered_poses.append(pose_results[0].keypoints.xy.cpu().numpy()[i])
-            else:
-                print(f"Box {i}: Background - Condition NOT met (Box Depth >= 0.1 * BG Depth)")
+                if (mean_box_depth != float('inf') and mean_bg_depth != float(
+                        'inf') and mean_box_depth >= 1.75 * mean_bg_depth):
+                    print(f"Box {i}: Foreground - Condition met (Box Depth < 0.1 * BG Depth)")
+                    filtered_poses.append(person_result.keypoints.xy.cpu().numpy()[i])
+                else:
+                    print(f"Box {i}: Background - Condition NOT met (Box Depth >= 0.1 * BG Depth)")
         return np.array(filtered_poses)
 
 
-    def run(self):
+    def run(self, frame_num = 10000):
         prev_time = 0
         cv2.namedWindow('Object Detection', cv2.WINDOW_NORMAL)
         cv2.namedWindow('Depth Map', cv2.WINDOW_NORMAL)
-
-        while True:
+        frame_count = 0
+        while frame_count <= frame_num:
             ret, frame = self.cap.read()
             if not ret:
                 print("Error: Failed to capture image.")
@@ -124,6 +125,8 @@ class GetForegroundPersons():
             depth_colored, depth_raw = self.detect_depth(frame)
             pose_results = self.extract_people_pose(frame)
             filtered_poses = self.intersect(depth_raw, pose_results, frame.shape)
+
+            print(filtered_poses)
 
             annotated_frame = frame.copy()
 
@@ -143,11 +146,30 @@ class GetForegroundPersons():
             cv2.imshow('YOLO Inference', annotated_frame)
             cv2.imshow('Depth Map', depth_colored)
 
+            frame_count += 1
+
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
         self.cap.release()
         cv2.destroyAllWindows()
+
+    def extract_last_pose(self, grace_period = 70):
+        prev_time = 0
+        frame_count = 0
+        filtered_poses = None
+        while frame_count <= grace_period:
+            ret, frame = self.cap.read()
+            if not ret:
+                print("Error: Failed to capture image.")
+                break
+
+            depth_colored, depth_raw = self.detect_depth(frame)
+            pose_results = self.extract_people_pose(frame)
+            filtered_poses = self.intersect(depth_raw, pose_results, frame.shape)
+
+        self.cap.release()
+        return filtered_poses
 
 if __name__ == "__main__":
     foreground_detector = GetForegroundPersons()
