@@ -27,8 +27,8 @@ class PoseComparator:
         return vector / norm
 
     def get_joint_vectors(self, pose):
-        left_leg = pose[15] - pose[13] if self.is_valid_keypoint(pose[15]) else None
-        right_leg = pose[16] - pose[14] if self.is_valid_keypoint(pose[16]) else None
+        left_leg = (pose[15] - pose[13]) if len(pose) > 15 and self.is_valid_keypoint(pose[15]) else None
+        right_leg = (pose[16] - pose[14]) if len(pose) > 16 and self.is_valid_keypoint(pose[16]) else None
         
         vectors = {
             'left_arm_upper': pose[7] - pose[5],
@@ -50,6 +50,8 @@ class PoseComparator:
         return normalized_vectors
     
     def compare_poses(self, pose1, pose2):
+        if (len(pose1) < 14 or len(pose2) < 14):
+            return 1
         pose1_vectors = self.get_joint_vectors(pose1)
         pose2_vectors = self.get_joint_vectors(pose2)
         
