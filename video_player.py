@@ -5,6 +5,7 @@ import time
 from shared import *
 import math
 from posecompare import PoseComparator
+from moviepy import *
 import threading
 import os
 
@@ -15,7 +16,15 @@ webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 pose_comparator = PoseComparator()
 reference_image = "testdata/lingyu.jpg"
 
+# Extract audio from mp4
+def extract_audio(video_filename):
+    # Load the video file
+    video = VideoFileClip(video_filename)
 
+    # Extract and save the audio
+    audio_filename = video_filename.replace('.mp4', '.wav')
+    video.audio.write_audiofile(audio_filename)
+    return audio_filename
 
 def display_feedback(screen, width, height, score_result, effect_start_time):
     """Displays a fading border based on the score result."""
@@ -51,9 +60,9 @@ def score(pose_keypoints):
     print(similarity)
     if similarity is None:
         return "BAD"
-    if (similarity < 0.25):
+    if (similarity < 0.6):
         return "GREAT"
-    elif (similarity < 0.35):
+    elif (similarity < 0.9):
         return "OK"
     else:
         return "BAD"
@@ -80,7 +89,9 @@ def get_tempo(folderpath):
 
 def play_video(folderpath, screen, width, height):
     folder_name = os.path.basename(folderpath)
-    pygame.mixer.music.load(folderpath + "\\" + folder_name  + ".wav")
+    video_filename = folderpath + "\\" + folder_name + ".mp4"
+    audio_filename = extract_audio(video_filename)
+    pygame.mixer.music.load(audio_filename)
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
     tempo = get_tempo(folderpath)
