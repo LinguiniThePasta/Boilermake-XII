@@ -1,7 +1,6 @@
 import cv2
 import pygame
 import time
-from audio_player import play_audio_from
 from shared import *
 import math
 from posecompare import PoseComparator
@@ -58,11 +57,13 @@ def score():
         return "BAD"
 
 def play_video(screen, width, height):
-
+    pygame.mixer.music.load("hell.wav")
+    pygame.mixer.music.set_volume(1)
+    pygame.mixer.music.play()
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
     video_offset = 0.20  # Adjust this offset for better audio-video sync
     start_time = time.time()
-    play_audio_from((time.time() - start_time) * 1000)
+    
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
