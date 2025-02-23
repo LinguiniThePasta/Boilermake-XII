@@ -101,7 +101,8 @@ def play_video(folderpath, screen, width, height):
     cap = cv2.VideoCapture(folderpath + "\\" + folder_name  + ".mp4")
     song_name = folder_name
     video_offset = 0.20  # Adjust this offset for better audio-video sync
-    start_time = time.time()
+
+
 
     # Seek the video to start_time (in milliseconds)
     cap.set(cv2.CAP_PROP_POS_MSEC, 0)
@@ -109,7 +110,6 @@ def play_video(folderpath, screen, width, height):
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
