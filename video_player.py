@@ -16,7 +16,7 @@ reference_image = "testdata/lingyu.jpg"
 # Extract audio from mp4
 def extract_audio(video_filename):
     # Load the video file
-    video = VideoFileClip(video_filename)
+    video = VideoFileClip(f'./videos/{video_filename}')
 
     # Extract and save the audio
     audio_filename = video_filename.replace('.mp4', '.wav')
