@@ -162,6 +162,8 @@ def play_video(folderpath, screen, width, height):
 
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
+                if (current_beat >= len(timestamps_and_poses)):
+                    return
                 current_pose = timestamps_and_poses[current_beat][1]
                 score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
