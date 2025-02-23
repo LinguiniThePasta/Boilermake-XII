@@ -48,6 +48,7 @@ def score(pose_keypoints):
  
     ret, frame = webcam.read()
     similarity = pose_comparator.reference_to_cam(pose_keypoints, frame)
+    print(similarity)
     if similarity is None:
         return "BAD"
     if (similarity < 0.25):
@@ -79,13 +80,14 @@ def get_tempo(folderpath):
 
 def play_video(folderpath, screen, width, height):
     folder_name = os.path.basename(folderpath)
-    pygame.mixer.music.load(folderpath + "/" + folder_name  + ".wav")
+    pygame.mixer.music.load(folderpath + "\\" + folder_name  + ".wav")
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
     tempo = get_tempo(folderpath)
     print(tempo)
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
-    cap = cv2.VideoCapture(folderpath + "/" + folder_name  + ".mp4")
+
+    cap = cv2.VideoCapture(folderpath + "\\" + folder_name  + ".mp4")
     song_name = folder_name
     video_offset = 0.20  # Adjust this offset for better audio-video sync
     start_time = time.time()
@@ -138,8 +140,8 @@ def play_video(folderpath, screen, width, height):
         screen.blit(fps_text, (10, 10))  # Position the FPS at the top-left corner
         # Detect face and draw a square if detected
 
-        beats_per_second = tempo / 60
-        current_beat = min(0,math.floor((elapsed_time - begin_song_time)* beats_per_second)) # Beat count based on elapsed time
+        beats_per_second = 128 / 60
+        current_beat = max(0, math.floor((elapsed_time - begin_song_time*1000) * beats_per_second)) # Beat count based on elapsed time
         print("CURRENT BEAT IS" + str(current_beat))
         # Check if the beat has changed (i.e., if it's greater than the previous stored beat)
         if current_beat > prev_beat:
@@ -148,7 +150,7 @@ def play_video(folderpath, screen, width, height):
             
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
-                current_pose = timestamps_and_poses[current_beat-1][1]
+                current_pose = timestamps_and_poses[current_beat][1]
                 score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
                 effect_start_time = time.time()

@@ -11,7 +11,7 @@ def add_huge_shit(key, value):
     if key in huge_shit:
         huge_shit[key].append(value)
     else:
-        huge_shit[key] = [value]
+        huge_shit[key] = value
 
     print(huge_shit[key])
 

@@ -33,7 +33,7 @@ def upload_video(bpm, start_beat, songname, url):
     # download youtube video
 
     options = {
-        "outtmpl": "./song/" + songname + "/" + songname + ".mp4",
+        "outtmpl": "./song/" + songname + "\\" + songname + ".mp4",
         "format": "best"
     }
     with yt_dlp.YoutubeDL(options) as ydl:
@@ -44,16 +44,16 @@ def upload_video(bpm, start_beat, songname, url):
 
     sample_a_frame_every_x_milliseconds = int(1000 / int(bpm / 60))
 
-    filename = "./song/" + songname + "/" + songname + ".txt"
-    meta_filename = "./song/" + songname + "/" + songname + ".meta"
+    filename = "./song/" + songname + "\\" + songname + ".txt"
+    meta_filename = "./song/" + songname + "\\" + songname + ".meta"
     fields = ['timestamp', 'visual pose reference']
     rows = [[i, None] for i in
-            range(start_beat * 1000, int(get_length("./song/" + songname + "/" + songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
+            range(start_beat * 1000, int(get_length("./song/" + songname + "\\" + songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
 
     # STEP 3:
     # gathering poses from video
 
-    choreo_capture = cv2.VideoCapture("./song/" + songname + "/" + songname + ".mp4")
+    choreo_capture = cv2.VideoCapture("./song/" + songname + "\\" + songname + ".mp4")
     csv_rows_checked_off = 0
     current_csv_row_timestamp_to_look_for = rows[csv_rows_checked_off][0]
 
@@ -66,14 +66,17 @@ def upload_video(bpm, start_beat, songname, url):
         timestamp = int(1000 * count_total_frames / fps)
         if frame_exists:
             if timestamp >= current_csv_row_timestamp_to_look_for:
-                cv2.imwrite("frame.jpg", curr_frame)
                 csv_rows_checked_off += 1
                 current_csv_row_timestamp_to_look_for = rows[csv_rows_checked_off][0]
+                cv2.imwrite("frame.jpg", curr_frame)
+                # frame = cv2.imread("frame.jpg") # read image from file
+                # flipped_frame = cv2.flip(frame, 1) # horizontal flip
+                # cv2.imwrite("frame.jpg", flipped_frame)  # save new image back to file
                 results = model("frame.jpg")
                 rows[csv_rows_checked_off][1] = results[0].keypoints.xy[0].cpu().numpy()
 
-    add_huge_shit(filename, rows)
-    print(get_huge_shit(filename))
+    add_huge_shit(songname, rows)
+    print(get_huge_shit(songname))
     # with open(filename, 'w') as file:
     #     file.write("".join(str(rows).splitlines()))
     # with open(meta_filename, 'w') as metafile:
