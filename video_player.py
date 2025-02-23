@@ -12,9 +12,6 @@ cap = cv2.VideoCapture('hell.mp4')
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 
-# Load OpenCV's Haar Cascade face detection model
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
 pose_comparator = PoseComparator()
 reference_image = "testdata/lingyu.jpg"
 
@@ -23,7 +20,7 @@ reference_image = "testdata/lingyu.jpg"
 def display_feedback(screen, width, height, score_result, effect_start_time):
     """Displays a fading border based on the score result."""
     elapsed_effect_time = (time.time() - effect_start_time) * 1000  # Convert to ms
-    effect_duration = 500  # Effect lasts 10 milliseconds
+    effect_duration = 500  # Effect lasts 500 millisecondsss
 
     if elapsed_effect_time > effect_duration:
         return  # Don't draw if the effect has expired
@@ -70,8 +67,6 @@ def play_video(screen, width, height):
     prev_time = 0
     prev_beat = 0
     tempo = 60
-
-
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     while cap.isOpened():

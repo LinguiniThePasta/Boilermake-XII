@@ -90,9 +90,11 @@ class PoseComparator:
         
         if pose1 is None or pose2 is None:
             #print(f"No pose detected in one or both images: {img_path_1}, {img_path_2}")
-            return None
+            return 1
 
         similarity = self.compare_poses(pose1, pose2)
+        if similarity is None:
+            similarity = 1
         print(f"Pose similarity between {img_path_1} and {img_path_2}: {similarity}")
         return similarity
 
