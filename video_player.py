@@ -5,9 +5,6 @@ from audio_player import play_audio_from
 from shared import *
 import math
 
-# Open the video file using OpenCV
-cap = cv2.VideoCapture('hell.mp4')
-
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 
@@ -28,17 +25,23 @@ def detect_face():
 
     return len(faces) > 0, gray, faces  # Returns True if at least one face is detected
 
-def play_video(screen, width, height):
+
+def play_video(screen, width, height, song_name, start_time):
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
+    cap = cv2.VideoCapture(song_name + '.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
-    start_time = time.time()
-    play_audio_from((time.time() - start_time) * 1000)
+
+    # Seek the video to start_time (in milliseconds)
+    cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+
+    play_audio_from(start_time * 1000)
+    real_start_time = time.time()  # Actual time when playback begins
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
     tempo = 120
     while cap.isOpened():
-        elapsed_time = time.time() - start_time - video_offset
+        elapsed_time = time.time() - real_start_time - video_offset + start_time
         elapsed_time = max(0.001, elapsed_time)
         cap.set(cv2.CAP_PROP_POS_MSEC, elapsed_time * 1000)
         ret, frame = cap.read()

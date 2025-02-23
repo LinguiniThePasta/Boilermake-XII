@@ -1,5 +1,5 @@
 import pygame
-from after_clicking_upload_button import upload_video
+from start_button_logic import upload_video
 
 def start_action(bpm_input_box, start_time_input_box, song_name_input_box, link_input_box, screen, width, height, play_video):
     """Handles the start button action by retrieving input values and playing the video."""
@@ -12,4 +12,4 @@ def start_action(bpm_input_box, start_time_input_box, song_name_input_box, link_
 
     upload_video(bpm, start_time, song_name, youtube_link)
 
-    play_video(screen, width, height)
+    play_video(screen, width, height, song_name, start_time)
