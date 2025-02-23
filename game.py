@@ -3,6 +3,7 @@ from input_boxes import InputBox, Button
 from video_player import play_video
 import cv2
 from dance_stats import display_statistics
+from actions import start_action
 from shared import *
 pygame.init()
 pygame.mixer.init()
@@ -26,15 +27,27 @@ def main():
     total_elements = 6
     spacing = height // total_elements - 1
 
+    bpm_input_box = InputBox(width // 2 - 100, spacing * 1 - 40, 200, 30, "BPM")
+    start_time_input_box = InputBox(width // 2 - 100, spacing * 2 - 40, 200, 30, "Starting Time")
+    song_name_input_box = InputBox(width // 2 - 100, spacing * 3 - 40, 200, 30, "Song Name")
+    link_input_box = InputBox(width // 2 - 100, spacing * 4 - 40, 200, 30, "YouTube Link")
+    start_button = Button(
+        width // 2 - 100, spacing * 5 - 40, 200, 30, "Start",
+        lambda: start_action(
+            bpm_input_box,
+            start_time_input_box,
+            song_name_input_box,
+            link_input_box,
+            screen,
+            width,
+            height,
+            play_video
+        )
+    )
+    stat_button = Button(width // 2 - 100, spacing * 6 - 40, 200, 30, "Stat", display_statistics)
 
     input_boxes = [
-        InputBox(width // 2 - 100, spacing * 1 - 40, 200, 30, "BPM"),
-        InputBox(width // 2 - 100, spacing * 2 - 40, 200, 30, "Starting Time"),
-        InputBox(width // 2 - 100, spacing * 3 - 40, 200, 30, "Ending Time"),
-        InputBox(width // 2 - 100, spacing * 4 - 40, 200, 30, "YouTube Link"),
-        Button(width // 2 - 100, spacing * 5 - 40, 200, 30, "Start", lambda: play_video(screen, width, height)),
-        Button(width // 2 - 100, spacing * 6 - 40, 200, 30, "Stat", display_statistics)
-
+        bpm_input_box, start_time_input_box, song_name_input_box, link_input_box, start_button, stat_button
     ]
 
     running = True
@@ -50,10 +63,6 @@ def main():
                 running = False
             for box in input_boxes:
                 box.handle_event(event)
-            #if event.type == pygame.MOUSEBUTTONDOWN:
-                #for box in input_boxes:
-                    #if isinstance(box, Button) and box.handle_event(event):
-                        #pass
 
         pygame.display.flip()
 

@@ -1,4 +1,5 @@
 import pygame
+import pyperclip
 
 pygame.font.init()
 FONT = pygame.font.Font(None, 16)
@@ -29,8 +30,12 @@ class InputBox:
                 self.text = ''  # Clear input box
             elif event.key == pygame.K_BACKSPACE:
                 self.text = self.text[:-1]
+            elif event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL or event.mod & pygame.KMOD_META):
+                # Handle Paste
+                pasted_text = pyperclip.paste()
+                self.text += pasted_text  # Append pasted text
             else:
-                self.text += event.unicode
+                self.text += event.unicode # Handle normal typing
 
             self.txt_surface = FONT.render(self.text, True, BLACK)
 
@@ -39,6 +44,10 @@ class InputBox:
         text_y = self.rect.y + (self.rect.height - self.txt_surface.get_height()) // 2
         screen.blit(self.txt_surface, (self.rect.x + 5, text_y))
         screen.blit(self.label_surface, (self.rect.x, self.rect.y - 20))
+
+    def get_value(self):
+        return self.text
+
 
 class Button:
     def __init__(self, x, y, w, h, text='', action=None):
