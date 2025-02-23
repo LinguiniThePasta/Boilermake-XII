@@ -32,7 +32,7 @@ def upload_video(bpm, start_beat, songname, url):
     # download youtube video
 
     options = {
-        "outtmpl": 'videos/' + songname + ".mp4",
+        "outtmpl": f'./videos/{songname}.mp4',
         "format": "best"
     }
     with yt_dlp.YoutubeDL(options) as ydl:
@@ -46,12 +46,12 @@ def upload_video(bpm, start_beat, songname, url):
     filename = "choreo_to_compare_to.csv"
     fields = ['timestamp', 'visual pose reference']
     rows = [[i, None] for i in
-            range(start_beat * 1000, int(get_length('videos/' + songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
+            range(start_beat * 1000, int(get_length(f'./videos/{songname}.mp4') * 1000), sample_a_frame_every_x_milliseconds)]
 
     # STEP 3:
     # gathering poses from video
-    choreo_capture = cv2.VideoCapture('videos/' + songname + ".mp4")
 
+    choreo_capture = cv2.VideoCapture(f'./videos/{songname}.mp4')
     # Check if the video file was opened successfully
     if not choreo_capture.isOpened():
         print("Error: Could not open video file.")
