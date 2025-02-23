@@ -12,4 +12,4 @@ def start_action(bpm_input_box, start_time_input_box, song_name_input_box, link_
 
     upload_video(bpm, start_time, song_name, youtube_link)
 
-    play_video(screen, width, height, song_name, start_time)
+    play_video(screen, width, height, song_name, start_time, bpm)

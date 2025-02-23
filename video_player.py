@@ -55,14 +55,13 @@ def score():
         return "BAD"
 
 
-def play_video(screen, width, height, song_name, start_time):
+def play_video(screen, width, height, song_name, start_time, bpm):
     pygame.mixer.music.load(song_name + '.wav')
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
-    cap = cv2.VideoCapture(f'./videos/{song_name}.mp4')
+    cap = cv2.VideoCapture(song_name + '.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
-    start_time = time.time()
 
     # Seek the video to start_time (in milliseconds)
     cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
@@ -70,7 +69,7 @@ def play_video(screen, width, height, song_name, start_time):
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    tempo = 60
+    tempo = bpm
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
