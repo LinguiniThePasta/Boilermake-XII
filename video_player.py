@@ -1,4 +1,5 @@
 import cv2
+import csv
 import pygame
 import time
 from shared import *
@@ -40,11 +41,11 @@ def display_feedback(screen, width, height, score_result, effect_start_time):
     pygame.draw.rect(border_surface, (*color, alpha), (0, 0, width, height), border_thickness)
     screen.blit(border_surface, (0, 0))
 
-def score():
+def score(pose_keypoints):
     """Detects faces using OpenCV's Haar cascade model and returns face coordinates."""
  
     ret, frame = webcam.read()
-    similarity = pose_comparator.compare_images(frame, reference_image)
+    similarity = pose_comparator.reference_to_cam(pose_keypoints, frame)
     if similarity is None:
         return "BAD"
     if (similarity < 0.25):
@@ -74,6 +75,11 @@ def play_video(screen, width, height, song_name, start_time):
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
+
+    with open(song_name + ".csv") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        timestamps_and_poses = list(csv_reader)
+    
     while cap.isOpened():
         elapsed_time = time.time() - real_start_time - video_offset + start_time
         elapsed_time = max(0.001, elapsed_time)
@@ -113,7 +119,8 @@ def play_video(screen, width, height, song_name, start_time):
             
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
-                score_result = score()  # Score result could be BAD, GOOD, or GREAT
+                current_pose = timestamps_and_poses[current_beat][1]
+                score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
                 effect_start_time = time.time()
                 print("Processed BEAT on separate thread")
