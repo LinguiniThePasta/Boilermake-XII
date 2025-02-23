@@ -23,7 +23,7 @@ reference_image = "testdata/lingyu.jpg"
 def display_feedback(screen, width, height, score_result, effect_start_time):
     """Displays a fading border based on the score result."""
     elapsed_effect_time = (time.time() - effect_start_time) * 1000  # Convert to ms
-    effect_duration = 10  # Effect lasts 10 milliseconds
+    effect_duration = 500  # Effect lasts 10 milliseconds
 
     if elapsed_effect_time > effect_duration:
         return  # Don't draw if the effect has expired
