@@ -50,7 +50,7 @@ class PoseComparator:
     
     def compare_poses(self, pose1, pose2):
         if (len(pose1) < 14 or len(pose2) < 14):
-            return 1
+            pass
         pose1_vectors = self.get_joint_vectors(pose1)
         pose2_vectors = self.get_joint_vectors(pose2)
         

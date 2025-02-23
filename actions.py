@@ -2,6 +2,7 @@ import pygame
 from start_button_logic import upload_video
 
 def start_action(folderpath, screen, width, height, play_video):
+
     play_video(folderpath, screen, width, height)
     pass
 
