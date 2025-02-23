@@ -9,9 +9,6 @@ import numpy as np
 
 from ultralytics import YOLO
 
-def get_length(input_video):
-    result = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', input_video], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    return int(result.stdout)
 
 def upload_video(bpm, start_beat, songname, url):
     model = YOLO("yolo11n-pose.pt")
@@ -26,15 +23,20 @@ def upload_video(bpm, start_beat, songname, url):
             return vector  # Avoid division by zero for zero vectors, return as is.
         return vector / norm
 
-    def get_length(filename):
-        # result = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
-        #                          "format=duration", "-of",
-        #                          "default=noprint_wrappers=1:nokey=1", filename],
-        #                         stdout=subprocess.PIPE,
-        #                         stderr=subprocess.STDOUT)
-        video = cv2.VideoCapture(filename)
-        duration = video.get(cv2.CAP_PROP_POS_MSEC)
-        return int(duration)
+    def get_length(input_video):
+        video_capture = cv2.VideoCapture(input_video)
+        
+        if not video_capture.isOpened():
+            return -1
+
+        fps = video_capture.get(cv2.CAP_PROP_FPS)
+        frame_count = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        if fps <= 0 or frame_count <= 0:
+            return -1
+
+        duration = int(frame_count / fps)
+        return duration
 
     def extract_keypoints(results):
         keypoints = []
@@ -71,12 +73,6 @@ def upload_video(bpm, start_beat, songname, url):
                 normalized_vectors[key] = None
         return normalized_vectors
 
-    # input
-    # url = "https://www.youtube.com/watch?v=fCv5q2yoqAY"
-    # songname = "rasputin".replace(" ", "")
-    # bpm = 128
-    # start_beat = 25
-
     # STEP 1:
     # download youtube video
 
@@ -91,10 +87,11 @@ def upload_video(bpm, start_beat, songname, url):
     # create csv file with timestamps to sample
 
     sample_a_frame_every_x_milliseconds = int(1000 / int(bpm / 60))
+
     filename = "choreo_to_compare_to.csv"
     fields = ['timestamp', 'visual pose reference', 'pose angles for computational comparison']
     rows = [[i, None, None] for i in
-            range(start_beat * 1000, get_length(songname + ".mp4"), sample_a_frame_every_x_milliseconds)]
+            range(start_beat * 1000, int(get_length(songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
 
     with open(filename, 'w') as csvfile:
         csvwriter = csv.writer(csvfile)
@@ -108,22 +105,22 @@ def upload_video(bpm, start_beat, songname, url):
     choreo_capture = cv2.VideoCapture(songname + ".mp4")
     frame_counter = 0
     current_timestamp_to_look_for = rows[0][0]
-    while choreo_capture.isOpened():
-        frame_exists, curr_frame = choreo_capture.read()
-        if frame_exists and choreo_capture.get(cv2.CAP_PROP_POS_MSEC) == current_timestamp_to_look_for:
-            cv2.imwrite("frame.jpg", curr_frame)
+    # while choreo_capture.isOpened():
+    #     frame_exists, curr_frame = choreo_capture.read()
+    #     if frame_exists and choreo_capture.get(cv2.CAP_PROP_POS_MSEC) == current_timestamp_to_look_for:
+    #         cv2.imwrite("frame.jpg", curr_frame)
 
-            pose_info = pose_info = model.track(curr_frame, device='cpu', tracker="bytetrack.yaml")
-            print(pose_info.shape)
-            rows[frame_counter][1] = pose_info
+    #         pose_info = pose_info = model.track(curr_frame, device='cpu', tracker="bytetrack.yaml")
+    #         print(pose_info.shape)
+    #         rows[frame_counter][1] = pose_info
 
-            reduced_pose_info = get_joint_vectors("frame.jpg")
-            print(reduced_pose_info)
-            rows[frame_counter][2] = reduced_pose_info
-            
-            frame_counter += 1
-            current_timestamp_to_look_for = rows[frame_counter][0]
-            
+    #         reduced_pose_info = get_joint_vectors("frame.jpg")
+    #         print(reduced_pose_info)
+    #         rows[frame_counter][2] = reduced_pose_info
+
+    #         frame_counter += 1
+    #         current_timestamp_to_look_for = rows[frame_counter][0]
+
             # run inference on the frame.jpg and store the pose info in csv
             # rows[frame_counter][1] = model.track(curr_frame, device='cpu', tracker="bytetrack.yaml")[0]
             # run Andrew's encoding and store angle info in csv
