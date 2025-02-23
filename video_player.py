@@ -4,6 +4,7 @@ import time
 from shared import *
 import math
 from posecompare import PoseComparator
+import threading
 
 # Open the video file using OpenCV
 cap = cv2.VideoCapture('hell.mp4')
@@ -106,11 +107,16 @@ def play_video(screen, width, height):
         if current_beat > prev_beat:
             prev_beat = current_beat  # Update the stored beat value
             print("BEAT")
-            # Run face detection only if the beat has changed
-            score_result = score()
-            face_detection_events.append((elapsed_time * 1000, score_result))
-            effect_start_time = time.time()
-            #score result could be BAD, GOOD, or GREAT
+            
+            def process_beat():
+                nonlocal face_detection_events, effect_start_time, score_result
+                score_result = score()  # Score result could be BAD, GOOD, or GREAT
+                face_detection_events.append((elapsed_time * 1000, score_result))
+                effect_start_time = time.time()
+                print("Processed BEAT on separate thread")
+
+            # Start a new thread for processing the score
+            threading.Thread(target=process_beat).start()
 
         if effect_start_time:
             display_feedback(screen, width, height, score_result, effect_start_time)
