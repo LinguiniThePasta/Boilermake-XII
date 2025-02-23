@@ -79,8 +79,8 @@ def upload_video(bpm, start_beat, songname, url):
     print(get_huge_shit(songname))
     # with open(filename, 'w') as file:
     #     file.write("".join(str(rows).splitlines()))
-    # with open(meta_filename, 'w') as metafile:
-    #     file.write(str(bpm))
+    with open(meta_filename, 'w') as metafile:
+        metafile.write(str(bpm))
     #     # csvwriter = csv.writer(csvfile)
     #     # csvwriter.writerow(fields)
     #     # csvwriter.writerows(rows)
