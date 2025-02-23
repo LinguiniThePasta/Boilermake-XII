@@ -97,10 +97,11 @@ def play_video(screen, width, height, song_name, start_time):
     score_result = None  # Track the latest score
     real_start_time = time.time()
 
-    with open(song_name + ".csv") as csv_file:
+    with open("/songs/" + song_name + ".csv") as csv_file:
         csv_reader = csv.reader(csv_file)
         timestamps_and_poses = list(csv_reader)
-    
+
+    number_of_poses_matched = 0
     while cap.isOpened():
         elapsed_time = time.time() - real_start_time - video_offset + start_time
         elapsed_time = max(0.001, elapsed_time)
@@ -140,12 +141,13 @@ def play_video(screen, width, height, song_name, start_time):
             
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
-                current_pose = timestamps_and_poses[current_beat][1]
+                current_pose = timestamps_and_poses[number_of_poses_matched][1]
                 score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
                 effect_start_time = time.time()
                 print("Processed BEAT on separate thread")
 
+            number_of_poses_matched += 1
             # Start a new thread for processing the score
             threading.Thread(target=process_beat).start()
 
