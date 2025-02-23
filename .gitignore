@@ -5,3 +5,5 @@ venv
 /sam2.1_t.pt
 /FastSAM-s.pt
 /input.mp4
+.idea/
+__pycache__/
