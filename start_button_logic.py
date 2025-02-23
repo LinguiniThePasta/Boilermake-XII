@@ -33,7 +33,7 @@ def upload_video(bpm, start_beat, songname, url):
     # download youtube video
 
     options = {
-        "outtmpl": "/song/" + songname + "/" + songname + ".mp4",
+        "outtmpl": "./song/" + songname + "/" + songname + ".mp4",
         "format": "best"
     }
     with yt_dlp.YoutubeDL(options) as ydl:
@@ -44,16 +44,16 @@ def upload_video(bpm, start_beat, songname, url):
 
     sample_a_frame_every_x_milliseconds = int(1000 / int(bpm / 60))
 
-    filename = "/song/" + songname + "/" + songname + ".txt"
-    meta_filename = "/song/" + songname + "/" + songname + ".meta"
+    filename = "./song/" + songname + "/" + songname + ".txt"
+    meta_filename = "./song/" + songname + "/" + songname + ".meta"
     fields = ['timestamp', 'visual pose reference']
     rows = [[i, None] for i in
-            range(start_beat * 1000, int(get_length(songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
+            range(start_beat * 1000, int(get_length("./song/" + songname + "/" + songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
 
     # STEP 3:
     # gathering poses from video
 
-    choreo_capture = cv2.VideoCapture("/song/" + songname + "/" + songname + ".mp4")
+    choreo_capture = cv2.VideoCapture("./song/" + songname + "/" + songname + ".mp4")
     csv_rows_checked_off = 0
     current_csv_row_timestamp_to_look_for = rows[csv_rows_checked_off][0]
 
