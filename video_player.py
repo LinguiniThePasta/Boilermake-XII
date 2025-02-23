@@ -140,7 +140,7 @@ def play_video(folderpath, screen, width, height):
         screen.blit(fps_text, (10, 10))  # Position the FPS at the top-left corner
         # Detect face and draw a square if detected
 
-        beats_per_second = 128 / 60
+        beats_per_second = tempo / 60
         current_beat = max(0, math.floor((elapsed_time - begin_song_time*1000) * beats_per_second)) # Beat count based on elapsed time
         print("CURRENT BEAT IS" + str(current_beat))
         # Check if the beat has changed (i.e., if it's greater than the previous stored beat)
