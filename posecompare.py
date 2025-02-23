@@ -84,6 +84,17 @@ class PoseComparator:
         keypoints = self.extract_keypoints(results)
         return keypoints[0] if keypoints else None
     
+    def reference_to_cam(self, reference_keypoint, web_img):
+        cam_pose = self.analyze(web_img)
+        if reference_keypoint is None or cam_pose is None:
+            #print(f"No pose detected in one or both images: {img_path_1}, {img_path_2}")
+            return 1
+        similarity = self.compare_poses(reference_keypoint, web_img)
+        if similarity is None:
+            similarity = 1
+        print(f"Pose similarity between reference and webcam pose is: {similarity}")
+        return similarity
+    
     def compare_images(self, img_path_1, img_path_2):
         pose1 = self.analyze_image(img_path_1)
         pose2 = self.analyze_image(img_path_2)
