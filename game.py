@@ -8,6 +8,7 @@ from shared import *
 pygame.init()
 pygame.mixer.init()
 
+
 # Get video dimensions
 cap = cv2.VideoCapture('videos/hell.mp4')
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -23,7 +24,7 @@ FONT = pygame.font.Font(None, 16)
 
 def main():
     """Display input fields"""
-    set_detection_events([(100, True), (200, False), (300, True)])
+    set_detection_events([(100, "BAD"), (200, "GREAT"), (300, "OK")])
     total_elements = 6
     spacing = height // total_elements - 1
 

@@ -1,45 +1,79 @@
 import cv2
 import pygame
 import time
-from audio_player import play_audio_from
 from shared import *
 import math
+from posecompare import PoseComparator
+import threading
 
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 
-# Load OpenCV's Haar Cascade face detection model
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+pose_comparator = PoseComparator()
+reference_image = "testdata/lingyu.jpg"
 
 
-def detect_face():
+
+def display_feedback(screen, width, height, score_result, effect_start_time):
+    """Displays a fading border based on the score result."""
+    elapsed_effect_time = (time.time() - effect_start_time) * 1000  # Convert to ms
+    effect_duration = 500  # Effect lasts 500 millisecondsss
+
+    if elapsed_effect_time > effect_duration:
+        return  # Don't draw if the effect has expired
+
+    # Determine color based on score
+    color_map = {
+        "GREAT": (0, 255, 0),  # Green
+        "OK": (255, 255, 0),  # Yellow
+        "BAD": (255, 0, 0)  # Red
+    }
+    color = color_map.get(score_result, (0, 0, 0))  # Default to white if unknown
+
+    # Calculate fade-out effect (opacity decrease)
+    fade_factor = max(0, 1 - (elapsed_effect_time / effect_duration))
+    alpha = int(255 * fade_factor)
+
+    # Draw fading border
+    border_thickness = 10
+    border_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.rect(border_surface, (*color, alpha), (0, 0, width, height), border_thickness)
+    screen.blit(border_surface, (0, 0))
+
+def score():
     """Detects faces using OpenCV's Haar cascade model and returns face coordinates."""
  
     ret, frame = webcam.read()
-    if not ret:
-        return False, None  # No frame captured
-
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-
-    return len(faces) > 0, gray, faces  # Returns True if at least one face is detected
+    similarity = pose_comparator.compare_images(frame, reference_image)
+    if similarity is None:
+        return "BAD"
+    if (similarity < 0.25):
+        return "GREAT"
+    elif (similarity < 0.35):
+        return "OK"
+    else:
+        return "BAD"
 
 
 def play_video(screen, width, height, song_name, start_time):
+    pygame.mixer.music.load(song_name + '.wav')
+    pygame.mixer.music.set_volume(1)
+    pygame.mixer.music.play()
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
     cap = cv2.VideoCapture(f'./videos/{song_name}.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
+    start_time = time.time()
 
     # Seek the video to start_time (in milliseconds)
     cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
 
-    play_audio_from(start_time * 1000)
-    real_start_time = time.time()  # Actual time when playback begins
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    tempo = 120
+    tempo = 60
+    effect_start_time = None  # Track when the effect starts
+    score_result = None  # Track the latest score
+    real_start_time = time.time()
     while cap.isOpened():
         elapsed_time = time.time() - real_start_time - video_offset + start_time
         elapsed_time = max(0.001, elapsed_time)
@@ -76,14 +110,19 @@ def play_video(screen, width, height, song_name, start_time):
         if current_beat > prev_beat:
             prev_beat = current_beat  # Update the stored beat value
             print("BEAT")
-            # Run face detection only if the beat has changed
-            face_detected, _, _ = detect_face()
-            face_detection_events.append((elapsed_time * 1000, face_detected))
-            if face_detected:
-                print("YES")
-                pygame.draw.rect(screen, (255, 0, 0), (width // 2 - 25, height // 2 - 25, 50, 50), 3)  # Red square
+            
+            def process_beat():
+                nonlocal face_detection_events, effect_start_time, score_result
+                score_result = score()  # Score result could be BAD, GOOD, or GREAT
+                face_detection_events.append((elapsed_time * 1000, score_result))
+                effect_start_time = time.time()
+                print("Processed BEAT on separate thread")
 
+            # Start a new thread for processing the score
+            threading.Thread(target=process_beat).start()
 
+        if effect_start_time:
+            display_feedback(screen, width, height, score_result, effect_start_time)
         pygame.display.update()
 
         # Handle Pygame events
@@ -95,7 +134,7 @@ def play_video(screen, width, height, song_name, start_time):
                 return
 
     cap.release()
-    webcam.release()
+    #webcam.release()
     print(face_detection_events)
     set_detection_events(face_detection_events)
     return

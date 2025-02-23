@@ -1,6 +1,14 @@
+from ultralytics import YOLO
+import torch
+import torchvision
 import cv2
 import time
-from ultralytics import YOLO
+
+print(torch.cuda.is_available())
+print(torch.cuda.device_count())
+print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No CUDA GPU detected")
+print("Torchvision Version:", torchvision.__version__)
+print("PyTorch Version:", torch.__version__)
 
 model = YOLO("yolo11n-pose.pt")
 
@@ -14,8 +22,9 @@ if not cap.isOpened():
 
 # Variables to calculate FPS
 prev_time = 0
+frame_count = 0
 
-while True:
+while frame_count <= 300:
     # Capture frame-by-frame
     ret, frame = cap.read()
     if not ret:
@@ -23,7 +32,7 @@ while True:
         break
 
     # Perform inference
-    results = model(frame, device='cpu')
+    results = model(frame, device=0, tracker="bytetrack.yaml")
 
     # Get current time
     current_time = time.time()
