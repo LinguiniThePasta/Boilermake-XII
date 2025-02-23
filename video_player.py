@@ -8,6 +8,7 @@ from posecompare import PoseComparator
 import threading
 import os
 
+
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 
@@ -99,14 +100,12 @@ def play_video(folderpath, screen, width, height):
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
-    timestamps_and_poses = None
-    with open(folderpath + "/" + folder_name + ".csv", newline='') as csv_file:
-        csv_reader = csv.reader(csv_file)
-        timestamps_and_poses = list(csv_reader)
+    timestamps_and_poses = get_huge_shit(folder_name)
+    
 
     print(timestamps_and_poses)
 
-    begin_song_time = int(timestamps_and_poses[2][0])
+    begin_song_time = int(timestamps_and_poses[0][0])
     print(begin_song_time)
     while cap.isOpened():
         elapsed_time = time.time() - real_start_time - video_offset
@@ -149,7 +148,7 @@ def play_video(folderpath, screen, width, height):
             
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
-                current_pose = timestamps_and_poses[current_beat+2][1]
+                current_pose = timestamps_and_poses[current_beat-1][1]
                 score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
                 effect_start_time = time.time()
