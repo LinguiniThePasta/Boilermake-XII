@@ -6,6 +6,7 @@ from shared import *
 import math
 from posecompare import PoseComparator
 import threading
+import os
 
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
@@ -55,11 +56,31 @@ def score(pose_keypoints):
     else:
         return "BAD"
 
+def get_tempo(folderpath):
+    folder_name = os.path.basename(folderpath)
+    metafile = os.path.join(folderpath, f"{folder_name}.meta")
+    
+    # Check if the metafile exists
+    if not os.path.exists(metafile):
+        print(f"Error: {metafile} not found.")
+        return None
+    
+    # Read the number from the file
+    try:
+        with open(metafile, "r") as file:
+            number = int(file.read().strip())  # Convert the content to an integer
+            return number
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error reading {metafile}: {e}")
+        return None
+    
+    print(f"Read number from {metafile}: {number}")
 
 def play_video(screen, width, height, song_name, start_time):
     pygame.mixer.music.load(song_name + '.wav')
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
+    tempo = get_tempo()
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
     cap = cv2.VideoCapture(song_name + '.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
@@ -71,7 +92,7 @@ def play_video(screen, width, height, song_name, start_time):
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    tempo = 60
+    
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
