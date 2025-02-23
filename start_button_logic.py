@@ -43,7 +43,8 @@ def upload_video(bpm, start_beat, songname, url):
 
     sample_a_frame_every_x_milliseconds = int(1000 / int(bpm / 60))
 
-    filename = "/song/" + songname + "/" + songname + ".csv"
+    filename = "/song/" + songname + "/" + songname + ".txt"
+    meta_filename = "/song/" + songname + "/" + songname + ".meta"
     fields = ['timestamp', 'visual pose reference']
     rows = [[i, None] for i in
             range(start_beat * 1000, int(get_length(songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
@@ -72,6 +73,8 @@ def upload_video(bpm, start_beat, songname, url):
 
     with open(filename, 'w') as file:
         file.write("".join(str(rows).splitlines()))
+    with open(meta_filename, 'w') as metafile:
+        file.write(str(bpm))
         # csvwriter = csv.writer(csvfile)
         # csvwriter.writerow(fields)
         # csvwriter.writerows(rows)

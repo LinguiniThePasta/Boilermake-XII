@@ -81,7 +81,7 @@ def play_video(folderpath, screen, width, height):
     pygame.mixer.music.load(folderpath + "/" + folder_name  + ".wav")
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
-    tempo = 128
+    tempo = get_tempo(folderpath)
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
     cap = cv2.VideoCapture(folderpath + "/" + folder_name  + ".mp4")
     song_name = folder_name
