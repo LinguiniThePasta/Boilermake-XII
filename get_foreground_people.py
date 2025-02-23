@@ -52,7 +52,9 @@ class GetForegroundPersons():
 
         depth_norm = cv2.normalize(depth_resized, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
         depth_colored = cv2.applyColorMap(depth_norm, cv2.COLORMAP_INFERNO)
-        return depth_colored, depth_resized
+        print(f"detect_depth: depth_resized shape: {depth_resized.shape}")
+        print(f"detect_depth: depth_colored shape: {depth_colored.shape}")
+        return depth_resized
 
     def extract_people_pose(self, frame):
         results = self.yolo_pose_model.predict(source=frame, classes=0, verbose=False)
@@ -129,7 +131,7 @@ class GetForegroundPersons():
         if len(filtered_poses) == 0:
             return np.array([])
         sorted_poses = sorted(filtered_poses, key=lambda x: x[0])
-        return np.array([sorted_poses[-1][1]])
+        return sorted_poses[-1][1]
 
 
 
@@ -144,7 +146,7 @@ class GetForegroundPersons():
                 print("Error: Failed to capture image.")
                 break
 
-            depth_colored, depth_raw = self.detect_depth(frame)
+            depth_raw = self.detect_depth(frame)
             pose_results = self.extract_people_pose(frame)
             filtered_poses = self.intersect(depth_raw, pose_results, frame.shape)
 
@@ -166,7 +168,7 @@ class GetForegroundPersons():
 
             cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.imshow('YOLO Inference', annotated_frame)
-            cv2.imshow('Depth Map', depth_colored)
+            cv2.imshow('Depth Map', depth_raw)
 
             frame_count += 1
 
