@@ -5,12 +5,14 @@ import cv2
 from dance_stats import display_statistics
 from actions import start_action
 from shared import *
+from loadpage import loadpage
+from selectpage import selectpage
 pygame.init()
 pygame.mixer.init()
 
 
 # Get video dimensions
-cap = cv2.VideoCapture('videos/hell.mp4')
+cap = cv2.VideoCapture('apple.mp4')
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 cap.release()
@@ -25,30 +27,50 @@ FONT = pygame.font.Font(None, 16)
 def main():
     """Display input fields"""
     set_detection_events([(100, "BAD"), (200, "GREAT"), (300, "OK")])
-    total_elements = 6
+    total_elements = 4
     spacing = height // total_elements - 1
 
-    bpm_input_box = InputBox(width // 2 - 100, spacing * 1 - 40, 200, 30, "BPM")
-    start_time_input_box = InputBox(width // 2 - 100, spacing * 2 - 40, 200, 30, "Starting Time")
-    song_name_input_box = InputBox(width // 2 - 100, spacing * 3 - 40, 200, 30, "Song Name")
-    link_input_box = InputBox(width // 2 - 100, spacing * 4 - 40, 200, 30, "YouTube Link")
+    bpm_input_box = None
+    start_time_input_box = None
+    song_name_input_box = None
+    link_input_box = None
+
+    song_path = None
+
+    # Wrapper function inside main
+    def loadpage_wrapper():
+        nonlocal bpm_input_box, start_time_input_box, song_name_input_box, link_input_box
+        bpm_input_box, start_time_input_box, song_name_input_box, link_input_box = loadpage(screen, width, height)
+
+    def select_wrapper():
+        nonlocal song_path
+        print(song_path)
+        song_path = selectpage(screen, width, height)
+        print(song_path)
+
+
+    load_button = Button(
+        width // 2 - 100, spacing * 1 - 40, 200, 30, "Upload",
+        loadpage_wrapper
+    )
+    select_button = Button(
+        width // 2 - 100, spacing * 2 - 40, 200, 30, "Select",
+        select_wrapper
+    )
     start_button = Button(
-        width // 2 - 100, spacing * 5 - 40, 200, 30, "Start",
+        width // 2 - 100, spacing * 3 - 40, 200, 30, "Start",
         lambda: start_action(
-            bpm_input_box,
-            start_time_input_box,
-            song_name_input_box,
-            link_input_box,
+            song_path,
             screen,
             width,
             height,
             play_video
         )
     )
-    stat_button = Button(width // 2 - 100, spacing * 6 - 40, 200, 30, "Stat", display_statistics)
+    stat_button = Button(width // 2 - 100, spacing * 4 - 40, 200, 30, "Stat", display_statistics)
 
     input_boxes = [
-        bpm_input_box, start_time_input_box, song_name_input_box, link_input_box, start_button, stat_button
+        load_button, select_button, start_button, stat_button
     ]
 
     running = True

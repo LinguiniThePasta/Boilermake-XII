@@ -116,4 +116,4 @@ def display_statistics():
         pygame.display.flip()
         clock.tick(30)  # Limit the loop to 30 FPS
 
-    pygame.quit()
+    #pygame.quit()

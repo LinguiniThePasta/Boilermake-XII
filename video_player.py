@@ -1,4 +1,5 @@
 import cv2
+import csv
 import pygame
 import time
 from shared import *
@@ -6,6 +7,8 @@ import math
 from posecompare import PoseComparator
 from moviepy import *
 import threading
+import os
+
 
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
@@ -16,7 +19,7 @@ reference_image = "testdata/lingyu.jpg"
 # Extract audio from mp4
 def extract_audio(video_filename):
     # Load the video file
-    video = VideoFileClip(f'./videos/{video_filename}')
+    video = VideoFileClip(video_filename)
 
     # Extract and save the audio
     audio_filename = video_filename.replace('.mp4', '.wav')
@@ -49,51 +52,83 @@ def display_feedback(screen, width, height, score_result, effect_start_time):
     pygame.draw.rect(border_surface, (*color, alpha), (0, 0, width, height), border_thickness)
     screen.blit(border_surface, (0, 0))
 
-def score():
+def score(pose_keypoints):
     """Detects faces using OpenCV's Haar cascade model and returns face coordinates."""
  
     ret, frame = webcam.read()
-    similarity = pose_comparator.compare_images(frame, reference_image)
+    similarity = pose_comparator.reference_to_cam(pose_keypoints, frame)
+    print(similarity)
     if similarity is None:
         return "BAD"
-    if (similarity < 0.25):
+    if (similarity < 0.6):
         return "GREAT"
-    elif (similarity < 0.35):
+    elif (similarity < 0.9):
         return "OK"
     else:
         return "BAD"
 
+def get_tempo(folderpath):
+    folder_name = os.path.basename(folderpath)
+    metafile = os.path.join(folderpath, f"{folder_name}.meta")
+    
+    # Check if the metafile exists
+    if not os.path.exists(metafile):
+        print(f"Error: {metafile} not found.")
+        return None
+    
+    # Read the number from the file
+    try:
+        with open(metafile, "r") as file:
+            number = int(file.read().strip())  # Convert the content to an integer
+            return number
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error reading {metafile}: {e}")
+        return None
+    
+    print(f"Read number from {metafile}: {number}")
 
-def play_video(screen, width, height, song_name, start_time, bpm):
-    video_filename = f'./videos/{song_name}.mp4'
+def play_video(folderpath, screen, width, height):
+    folder_name = os.path.basename(folderpath)
+    video_filename = folderpath + "\\" + folder_name + ".mp4"
     audio_filename = extract_audio(video_filename)
     pygame.mixer.music.load(audio_filename)
     pygame.mixer.music.set_volume(1)
-    pygame.mixer.music.play(start=start_time)
+    pygame.mixer.music.play()
+    tempo = get_tempo(folderpath)
+    print(tempo)
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
-    cap = cv2.VideoCapture(f'./videos/{song_name}.mp4')
+
+    cap = cv2.VideoCapture(folderpath + "\\" + folder_name  + ".mp4")
+    song_name = folder_name
     video_offset = 0.20  # Adjust this offset for better audio-video sync
 
 
 
     # Seek the video to start_time (in milliseconds)
-    cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+    cap.set(cv2.CAP_PROP_POS_MSEC, 0)
 
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    tempo = bpm
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
+    timestamps_and_poses = get_huge_shit(folder_name)
+    
+
+    print(timestamps_and_poses)
+
+    begin_song_time = int(timestamps_and_poses[0][0])
+    print(begin_song_time)
     while cap.isOpened():
-        elapsed_time = time.time() - real_start_time - video_offset + start_time
+        elapsed_time = time.time() - real_start_time - video_offset
         elapsed_time = max(0.001, elapsed_time)
         cap.set(cv2.CAP_PROP_POS_MSEC, elapsed_time * 1000)
         ret, frame = cap.read()
 
         if not ret:
             break
+
 
         # Convert the frame to RGB format
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -117,7 +152,8 @@ def play_video(screen, width, height, song_name, start_time, bpm):
         # Detect face and draw a square if detected
 
         beats_per_second = tempo / 60
-        current_beat = math.floor(elapsed_time * beats_per_second)  # Beat count based on elapsed time
+        current_beat = max(0, math.floor((elapsed_time - begin_song_time*1000) * beats_per_second)) # Beat count based on elapsed time
+        print("CURRENT BEAT IS" + str(current_beat))
         # Check if the beat has changed (i.e., if it's greater than the previous stored beat)
         if current_beat > prev_beat:
             prev_beat = current_beat  # Update the stored beat value
@@ -125,7 +161,8 @@ def play_video(screen, width, height, song_name, start_time, bpm):
             
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
-                score_result = score()  # Score result could be BAD, GOOD, or GREAT
+                current_pose = timestamps_and_poses[current_beat][1]
+                score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
                 effect_start_time = time.time()
                 print("Processed BEAT on separate thread")
