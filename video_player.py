@@ -69,7 +69,9 @@ def play_video(screen, width, height):
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    tempo = 10
+    tempo = 60
+
+
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     while cap.isOpened():
