@@ -32,7 +32,7 @@ def upload_video(bpm, start_beat, songname, url):
     # download youtube video
 
     options = {
-        "outtmpl": songname + ".mp4",
+        "outtmpl": f'/videos/{songname}.mp4',
         "format": "best"
     }
     with yt_dlp.YoutubeDL(options) as ydl:

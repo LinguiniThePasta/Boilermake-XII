@@ -2,7 +2,7 @@ from pydub import AudioSegment
 import simpleaudio as sa
 
 # Load the audio file
-audio = AudioSegment.from_file("hell.wav")
+audio = AudioSegment.from_file("./videos/hell.wav")
 
 # Define a function to play audio from a specific start time
 def play_audio_from(timestamp_ms):

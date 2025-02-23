@@ -9,7 +9,7 @@ pygame.init()
 pygame.mixer.init()
 
 # Get video dimensions
-cap = cv2.VideoCapture('hell.mp4')
+cap = cv2.VideoCapture('videos/hell.mp4')
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 cap.release()

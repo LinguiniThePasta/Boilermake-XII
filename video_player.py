@@ -28,7 +28,7 @@ def detect_face():
 
 def play_video(screen, width, height, song_name, start_time):
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
-    cap = cv2.VideoCapture(song_name + '.mp4')
+    cap = cv2.VideoCapture(f'./videos/{song_name}.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
 
     # Seek the video to start_time (in milliseconds)
