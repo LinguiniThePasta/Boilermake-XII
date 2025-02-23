@@ -32,7 +32,7 @@ while frame_count <= 300:
         break
 
     # Perform inference
-    results = model(frame, device=0, tracker="bytetrack.yaml")
+    results = model.track(frame, device=0, tracker="bytetrack.yaml")
 
     # Get current time
     current_time = time.time()
