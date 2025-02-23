@@ -6,9 +6,6 @@ import math
 from posecompare import PoseComparator
 import threading
 
-# Open the video file using OpenCV
-cap = cv2.VideoCapture('hell.mp4')
-
 # Open webcam for face detection
 webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 
@@ -57,14 +54,22 @@ def score():
     else:
         return "BAD"
 
-def play_video(screen, width, height):
-    pygame.mixer.music.load("hell.wav")
+
+def play_video(screen, width, height, song_name, start_time):
+    pygame.mixer.music.load(song_name + '.wav')
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
+    cap = cv2.VideoCapture(song_name + '.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
     start_time = time.time()
-    
+
+    # Seek the video to start_time (in milliseconds)
+    cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+
+    play_audio_from(start_time * 1000)
+    real_start_time = time.time()  # Actual time when playback begins
+>>>>>>> main
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
@@ -72,7 +77,7 @@ def play_video(screen, width, height):
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     while cap.isOpened():
-        elapsed_time = time.time() - start_time - video_offset
+        elapsed_time = time.time() - real_start_time - video_offset + start_time
         elapsed_time = max(0.001, elapsed_time)
         cap.set(cv2.CAP_PROP_POS_MSEC, elapsed_time * 1000)
         ret, frame = cap.read()
