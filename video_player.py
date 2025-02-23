@@ -4,6 +4,7 @@ import time
 from shared import *
 import math
 from posecompare import PoseComparator
+from moviepy import *
 import threading
 
 # Open webcam for face detection
@@ -12,7 +13,15 @@ webcam = cv2.VideoCapture(0)  # Change index if using an external webcam
 pose_comparator = PoseComparator()
 reference_image = "testdata/lingyu.jpg"
 
+# Extract audio from mp4
+def extract_audio(video_filename):
+    # Load the video file
+    video = VideoFileClip(video_filename)
 
+    # Extract and save the audio
+    audio_filename = video_filename.replace('.mp4', '.wav')
+    video.audio.write_audiofile(audio_filename)
+    return audio_filename
 
 def display_feedback(screen, width, height, score_result, effect_start_time):
     """Displays a fading border based on the score result."""
@@ -56,9 +65,11 @@ def score():
 
 
 def play_video(screen, width, height, song_name, start_time, bpm):
-    pygame.mixer.music.load(song_name + '.wav')
+    video_filename = song_name + ".mp4"
+    audio_filename = extract_audio(video_filename)
+    pygame.mixer.music.load(audio_filename)
     pygame.mixer.music.set_volume(1)
-    pygame.mixer.music.play()
+    pygame.mixer.music.play(start=start_time)
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
     cap = cv2.VideoCapture(song_name + '.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
