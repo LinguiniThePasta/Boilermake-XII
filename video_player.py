@@ -76,18 +76,20 @@ def get_tempo(folderpath):
     
     print(f"Read number from {metafile}: {number}")
 
-def play_video(screen, width, height, song_name, start_time):
-    pygame.mixer.music.load(song_name + '.wav')
+def play_video(folderpath, screen, width, height):
+    folder_name = os.path.basename(folderpath)
+    pygame.mixer.music.load(folderpath + "/" + folder_name  + ".wav")
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play()
-    tempo = get_tempo()
+    tempo = 128
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
-    cap = cv2.VideoCapture(song_name + '.mp4')
+    cap = cv2.VideoCapture(folderpath + "/" + folder_name  + ".mp4")
+    song_name = folder_name
     video_offset = 0.20  # Adjust this offset for better audio-video sync
     start_time = time.time()
 
     # Seek the video to start_time (in milliseconds)
-    cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+    cap.set(cv2.CAP_PROP_POS_MSEC, 0)
 
     face_detection_events = []
     prev_time = 0
@@ -96,20 +98,24 @@ def play_video(screen, width, height, song_name, start_time):
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
     real_start_time = time.time()
-
-    with open("/song/" + song_name + ".csv") as csv_file:
+    timestamps_and_poses = None
+    with open(folderpath + "/" + folder_name + ".csv", newline='') as csv_file:
         csv_reader = csv.reader(csv_file)
         timestamps_and_poses = list(csv_reader)
 
-    number_of_poses_matched = 0
+    print(timestamps_and_poses)
+
+    begin_song_time = int(timestamps_and_poses[2][0])
+    print(begin_song_time)
     while cap.isOpened():
-        elapsed_time = time.time() - real_start_time - video_offset + start_time
+        elapsed_time = time.time() - real_start_time - video_offset
         elapsed_time = max(0.001, elapsed_time)
         cap.set(cv2.CAP_PROP_POS_MSEC, elapsed_time * 1000)
         ret, frame = cap.read()
 
         if not ret:
             break
+
 
         # Convert the frame to RGB format
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -133,7 +139,8 @@ def play_video(screen, width, height, song_name, start_time):
         # Detect face and draw a square if detected
 
         beats_per_second = tempo / 60
-        current_beat = math.floor(elapsed_time * beats_per_second)  # Beat count based on elapsed time
+        current_beat = min(0,math.floor((elapsed_time - begin_song_time)* beats_per_second)) # Beat count based on elapsed time
+        print("CURRENT BEAT IS" + str(current_beat))
         # Check if the beat has changed (i.e., if it's greater than the previous stored beat)
         if current_beat > prev_beat:
             prev_beat = current_beat  # Update the stored beat value
@@ -141,13 +148,12 @@ def play_video(screen, width, height, song_name, start_time):
             
             def process_beat():
                 nonlocal face_detection_events, effect_start_time, score_result
-                current_pose = timestamps_and_poses[number_of_poses_matched][1]
+                current_pose = timestamps_and_poses[current_beat+2][1]
                 score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
                 face_detection_events.append((elapsed_time * 1000, score_result))
                 effect_start_time = time.time()
                 print("Processed BEAT on separate thread")
 
-            number_of_poses_matched += 1
             # Start a new thread for processing the score
             threading.Thread(target=process_beat).start()
 

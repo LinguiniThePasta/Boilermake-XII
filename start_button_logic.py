@@ -43,7 +43,7 @@ def upload_video(bpm, start_beat, songname, url):
 
     sample_a_frame_every_x_milliseconds = int(1000 / int(bpm / 60))
 
-    filename = "/song/" + songname + "/" + songname + .csv"
+    filename = "/song/" + songname + "/" + songname + ".csv"
     fields = ['timestamp', 'visual pose reference']
     rows = [[i, None] for i in
             range(start_beat * 1000, int(get_length(songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
@@ -70,7 +70,8 @@ def upload_video(bpm, start_beat, songname, url):
                 results = model("frame.jpg")
                 rows[csv_rows_checked_off][1] = results[0].keypoints.xy[0].cpu().numpy()
 
-    with open(filename, 'w') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(fields)
-        csvwriter.writerows(rows)
+    with open(filename, 'w') as file:
+        file.write("".join(str(rows).splitlines()))
+        # csvwriter = csv.writer(csvfile)
+        # csvwriter.writerow(fields)
+        # csvwriter.writerows(rows)
