@@ -67,15 +67,13 @@ def play_video(screen, width, height, song_name, start_time):
     # Seek the video to start_time (in milliseconds)
     cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
 
-    play_audio_from(start_time * 1000)
-    real_start_time = time.time()  # Actual time when playback begins
->>>>>>> main
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
     tempo = 60
     effect_start_time = None  # Track when the effect starts
     score_result = None  # Track the latest score
+    real_start_time = time.time()
     while cap.isOpened():
         elapsed_time = time.time() - real_start_time - video_offset + start_time
         elapsed_time = max(0.001, elapsed_time)
@@ -136,7 +134,7 @@ def play_video(screen, width, height, song_name, start_time):
                 return
 
     cap.release()
-    webcam.release()
+    #webcam.release()
     print(face_detection_events)
     set_detection_events(face_detection_events)
     return
