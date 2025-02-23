@@ -7,6 +7,7 @@ import csv
 import subprocess
 import numpy as np
 from ultralytics import YOLO
+from shared import *
 
 
 def upload_video(bpm, start_beat, songname, url):
@@ -71,10 +72,12 @@ def upload_video(bpm, start_beat, songname, url):
                 results = model("frame.jpg")
                 rows[csv_rows_checked_off][1] = results[0].keypoints.xy[0].cpu().numpy()
 
-    with open(filename, 'w') as file:
-        file.write("".join(str(rows).splitlines()))
-    with open(meta_filename, 'w') as metafile:
-        file.write(str(bpm))
-        # csvwriter = csv.writer(csvfile)
-        # csvwriter.writerow(fields)
-        # csvwriter.writerows(rows)
+    add_huge_shit(filename, rows)
+    print(get_huge_shit(filename))
+    # with open(filename, 'w') as file:
+    #     file.write("".join(str(rows).splitlines()))
+    # with open(meta_filename, 'w') as metafile:
+    #     file.write(str(bpm))
+    #     # csvwriter = csv.writer(csvfile)
+    #     # csvwriter.writerow(fields)
+    #     # csvwriter.writerows(rows)
