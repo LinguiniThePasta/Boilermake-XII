@@ -97,7 +97,7 @@ def play_video(screen, width, height, song_name, start_time):
     score_result = None  # Track the latest score
     real_start_time = time.time()
 
-    with open("/songs/" + song_name + ".csv") as csv_file:
+    with open("/song/" + song_name + ".csv") as csv_file:
         csv_reader = csv.reader(csv_file)
         timestamps_and_poses = list(csv_reader)
 
