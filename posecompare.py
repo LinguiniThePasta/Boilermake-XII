@@ -5,10 +5,14 @@ from scipy.spatial.distance import cosine
 import statistics
 import heapq
 
+from get_foreground_people import GetForegroundPersons
+
+
 class PoseComparator:
     def __init__(self, model_path="yolo11n-pose.pt", device='cpu'):
         self.model = YOLO(model_path)
         self.device = device
+        self.foregroundPersons = GetForegroundPersons()
     
     @staticmethod
     def cosine_similarity(vec1, vec2):
@@ -80,9 +84,16 @@ class PoseComparator:
         return keypoints
     
     def analyze_image(self, img_path):
-        results = self.model(img_path, device=self.device)
-        keypoints = self.extract_keypoints(results)
-        return keypoints[0] if keypoints else None
+        # REPLACE with depth sensing thing so you get best foreground set of keypoints
+        filtered_poses = self.foregroundPersons.intersect(self.foregroundPersons.detect_depth(img_path),
+                                         self.foregroundPersons.extract_people_pose(img_path),
+                                         img_path.shape)
+
+        return filtered_poses
+        # # below takes an image and gets ONE set of keypoints
+        # results = self.model(img_path, device=self.device)
+        # keypoints = self.extract_keypoints(results)
+        # return keypoints[0] if keypoints else None
     
     def compare_images(self, img_path_1, img_path_2):
         pose1 = self.analyze_image(img_path_1)

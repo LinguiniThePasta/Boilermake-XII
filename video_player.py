@@ -65,19 +65,16 @@ def score():
 
 
 def play_video(screen, width, height, song_name, start_time, bpm):
-    video_filename = song_name + ".mp4"
+    video_filename = f'./videos/{song_name}.mp4'
     audio_filename = extract_audio(video_filename)
     pygame.mixer.music.load(audio_filename)
     pygame.mixer.music.set_volume(1)
     pygame.mixer.music.play(start=start_time)
     """Plays video, synchronizes with audio, and overlays a square if a face is detected."""
-    cap = cv2.VideoCapture('videos/' + song_name + '.mp4')
-
-    if not cap.isOpened():
-        print("Error: Could not open video file.")
-        exit()
-
+    cap = cv2.VideoCapture(f'./videos/{song_name}.mp4')
     video_offset = 0.20  # Adjust this offset for better audio-video sync
+
+
 
     # Seek the video to start_time (in milliseconds)
     cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
