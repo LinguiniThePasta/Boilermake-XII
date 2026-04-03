@@ -1,0 +1,9 @@
+ultralytics
+opencv-python
+pygame
+scipy
+moviepy
+numpy
+torch
+torchvision
+pyperclip

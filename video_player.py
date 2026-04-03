@@ -22,11 +22,11 @@ reference_image = "testdata/lingyu.jpg"
 
 # Extract audio from mp4
 def extract_audio(video_filename):
+    audio_filename = video_filename.replace('.mp4', '.wav')
+    if os.path.exists(audio_filename):
+        return audio_filename
     # Load the video file
     video = VideoFileClip(video_filename)
-
-    # Extract and save the audio
-    audio_filename = video_filename.replace('.mp4', '.wav')
     video.audio.write_audiofile(audio_filename)
     return audio_filename
 
@@ -56,19 +56,30 @@ def display_feedback(screen, width, height, score_result, effect_start_time):
     pygame.draw.rect(border_surface, (*color, alpha), (0, 0, width, height), border_thickness)
     screen.blit(border_surface, (0, 0))
 
+
 def score(pose_keypoints):
-    """Detects faces using OpenCV's Haar cascade model and returns face coordinates."""
+    """
+    Reads a webcam frame, compares all detected foreground players against
+    the reference pose, and returns a dict of {track_id: rating_string}.
+    Falls back to a single "BAD" entry if nothing is detected.
+    """
     ret, frame = webcam.read()
-    similarity = pose_comparator.reference_to_cam(pose_keypoints, frame)
-    print(similarity)
-    if similarity is None:
-        return "BAD"
-    if (similarity < 0.45):
-        return "GREAT"
-    elif (similarity < 0.8):
-        return "OK"
-    else:
-        return "BAD"
+    if not ret:
+        return {"unknown": "BAD"}
+    scores = pose_comparator.compare_all_players(pose_keypoints, frame)
+
+    if not scores:
+        return {"unknown": "BAD"}
+
+    def similarity_to_rating(sim):
+        if sim < 0.45:
+            return "GREAT"
+        elif sim < 0.8:
+            return "OK"
+        else:
+            return "BAD"
+
+    return {track_id: similarity_to_rating(sim) for track_id, sim in scores.items()}
 
 def get_tempo(folderpath):
     folder_name = os.path.basename(folderpath)
@@ -111,14 +122,32 @@ def play_video(folderpath, screen, width, height):
     face_detection_events = []
     prev_time = 0
     prev_beat = 0
-    effect_start_time = None  # Track when the effect starts
-    score_result = None  # Track the latest score
+    shared_state = {
+        "effect_start_time": None,
+        "latest_scores": {},
+        "face_detection_events": [],
+    }
     real_start_time = time.time()
     timestamps_and_poses = get_huge_shit(folder_name)
     print(timestamps_and_poses)
 
     begin_song_time = int(timestamps_and_poses[0][0])
     print(begin_song_time)
+
+    state_lock = threading.Lock()
+
+    def process_beat(current_beat, elapsed_time):
+        """Runs pose scoring on a background thread so video playback isn't blocked."""
+        if current_beat >= len(timestamps_and_poses):
+            return
+        current_pose = timestamps_and_poses[current_beat][1]
+        result = score(current_pose)
+        with state_lock:
+            shared_state["latest_scores"] = result
+            shared_state["face_detection_events"].append((elapsed_time * 1000, result))
+            shared_state["effect_start_time"] = time.time()
+        print(f"Beat {current_beat} scored: {result}")
+
     while cap.isOpened():
         elapsed_time = time.time() - real_start_time - video_offset
         elapsed_time = max(0.001, elapsed_time)
@@ -131,8 +160,6 @@ def play_video(folderpath, screen, width, height):
 
         # Convert the frame to RGB format
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-
 
         # Create a Pygame surface from the frame
         frame_surface = pygame.surfarray.make_surface(frame)
@@ -159,24 +186,21 @@ def play_video(folderpath, screen, width, height):
         if current_beat > prev_beat:
             prev_beat = current_beat  # Update the stored beat value
             print("BEAT")
+            threading.Thread(
+                target=process_beat,
+                args=(current_beat, elapsed_time),
+                daemon=True
+            ).start()
 
-            def process_beat():
-                nonlocal face_detection_events, effect_start_time, score_result
-                if (current_beat >= len(timestamps_and_poses)):
-                    return
-                current_pose = timestamps_and_poses[current_beat][1]
-                score_result = score(current_pose)  # Score result could be BAD, GOOD, or GREAT
-                face_detection_events.append((elapsed_time * 1000, score_result))
-                effect_start_time = time.time()
+        with state_lock:
+            current_effect_start = shared_state["effect_start_time"]
+            current_scores = dict(shared_state["latest_scores"])
 
-                print("Processed BEAT on separate thread")
+        if current_effect_start:
+            first_rating = next(iter(current_scores.values()), None)
+            if first_rating:
+                display_feedback(screen, width, height, first_rating, current_effect_start)
 
-            process_beat()
-            # Start a new thread for processing the score
-            # threading.Thread(target=process_beat).start()
-
-        if effect_start_time:
-            display_feedback(screen, width, height, score_result, effect_start_time)
         pygame.display.update()
 
         # Handle Pygame events
