@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Just Dance</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Menu ── */
+    #menu { padding: 28px; max-width: 900px; margin: 0 auto; }
+
+    h1 {
+      font-size: 3rem;
+      text-align: center;
+      color: #e94560;
+      margin-bottom: 28px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .btn {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 6px;
+    }
+    .btn:hover { background: #c73652; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn.secondary {
+      background: #16213e;
+      border: 1px solid #e94560;
+    }
+    .btn.secondary:hover { background: #0f3460; }
+
+    #song-list { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+
+    .song-card {
+      background: #16213e;
+      padding: 14px 22px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
+      font-size: 1.1rem;
+    }
+    .song-card:hover { border-color: #e94560; }
+    .song-card.selected { border-color: #e94560; background: #0f3460; }
+
+    #upload-form {
+      background: #16213e;
+      padding: 22px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    #upload-form h3 { margin-bottom: 14px; }
+    #upload-form label { display: block; font-size: 0.82rem; color: #aaa; margin-top: 10px; }
+    #upload-form input {
+      display: block;
+      width: 100%;
+      padding: 9px;
+      background: #1a1a2e;
+      border: 1px solid #444;
+      color: #eee;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+    #upload-status { margin-top: 10px; color: #aaa; font-size: 0.9rem; }
+
+    /* ── Game ── */
+    #game { display: none; padding: 16px; }
+
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #16213e;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+    }
+    #beat-counter, #fps-display { font-size: 1rem; color: #aaa; }
+
+    #video-container {
+      position: relative;
+      display: inline-block;
+      line-height: 0;
+    }
+    #video-frame {
+      max-width: 100%;
+      border-radius: 8px;
+      display: block;
+    }
+
+    /* Fading border flash over video */
+    #border-flash {
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      border: 12px solid transparent;
+      pointer-events: none;
+      transition: opacity 0.05s linear;
+    }
+
+    /* ── Per-player score cards ── */
+    #player-scores {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .player-score {
+      padding: 14px 22px;
+      border-radius: 8px;
+      font-size: 1.4rem;
+      font-weight: bold;
+      min-width: 130px;
+      text-align: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .player-score.idle    { background: #333; color: #777; }
+    .player-score.GREAT   { background: rgba(0, 200, 80, 0.85); color: #fff; }
+    .player-score.OK      { background: rgba(220, 200, 0, 0.85); color: #fff; }
+    .player-score.BAD     { background: rgba(220, 40, 40, 0.85); color: #fff; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ══ MENU ══ -->
+<div id="menu">
+  <h1>Just Dance</h1>
+
+  <div>
+    <button class="btn" id="btn-refresh">Refresh Songs</button>
+    <button class="btn secondary" id="btn-show-upload">Upload Song</button>
+  </div>
+
+  <div id="song-list"></div>
+
+  <div id="upload-form" class="hidden">
+    <h3>Upload New Song</h3>
+    <label>Song Name</label>
+    <input id="upload-name" type="text" placeholder="e.g. rasputin" />
+    <label>YouTube URL</label>
+    <input id="upload-url" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+    <label>BPM</label>
+    <input id="upload-bpm" type="number" placeholder="120" />
+    <label>Start Beat (seconds into song)</label>
+    <input id="upload-start" type="number" placeholder="0" value="0" />
+    <button class="btn" id="btn-upload" style="margin-top:14px">Upload &amp; Process</button>
+    <p id="upload-status"></p>
+  </div>
+
+  <div style="margin-top: 22px;">
+    <button class="btn" id="btn-start" disabled>Start Game</button>
+  </div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div id="game">
+  <div id="status-bar">
+    <button class="btn secondary" id="btn-stop">Stop</button>
+    <span id="beat-counter">Beat: 0</span>
+    <span id="fps-display">FPS: --</span>
+  </div>
+
+  <div id="video-container">
+    <img id="video-frame" alt="Game video" />
+    <div id="border-flash"></div>
+  </div>
+
+  <div id="player-scores"></div>
+
+  <audio id="game-audio" style="display:none"></audio>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
