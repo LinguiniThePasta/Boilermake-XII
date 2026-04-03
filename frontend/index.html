@@ -92,6 +92,7 @@
     }
     #beat-counter, #fps-display { font-size: 1rem; color: #aaa; }
 
+    /* Video + overlays */
     #video-container {
       position: relative;
       display: inline-block;
@@ -103,24 +104,55 @@
       display: block;
     }
 
-    /* Fading border flash over video */
-    #border-flash {
+    /* Score text pop  (GREAT / OK / BAD) */
+    #score-text {
       position: absolute;
-      inset: 0;
-      border-radius: 8px;
-      border: 12px solid transparent;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      font-size: 5rem;
+      font-weight: 900;
+      letter-spacing: 4px;
+      text-transform: uppercase;
       pointer-events: none;
-      transition: opacity 0.05s linear;
+      opacity: 0;
+      text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+      transition: none;
+    }
+    #score-text.GREAT { color: #00ff88; }
+    #score-text.OK    { color: #ffdd00; }
+    #score-text.BAD   { color: #ff3333; }
+    #score-text.pop {
+      animation: score-pop 0.55s ease-out forwards;
+    }
+    @keyframes score-pop {
+      0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.6); }
+      30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+      60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0); }
     }
 
-    /* ── Per-player score cards ── */
+    /* Silhouette overlay — bottom-right corner, small */
+    #silhouette-overlay {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 180px;
+      border-radius: 6px;
+      /* mix-blend-mode:screen makes the black background invisible */
+      mix-blend-mode: screen;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    #silhouette-overlay.hidden { display: none; }
+
+    /* Per-player score cards */
     #player-scores {
       display: flex;
       flex-wrap: wrap;
       gap: 14px;
       margin-top: 16px;
     }
-
     .player-score {
       padding: 14px 22px;
       border-radius: 8px;
@@ -130,10 +162,10 @@
       text-align: center;
       transition: background 0.15s, color 0.15s;
     }
-    .player-score.idle    { background: #333; color: #777; }
-    .player-score.GREAT   { background: rgba(0, 200, 80, 0.85); color: #fff; }
-    .player-score.OK      { background: rgba(220, 200, 0, 0.85); color: #fff; }
-    .player-score.BAD     { background: rgba(220, 40, 40, 0.85); color: #fff; }
+    .player-score.idle  { background: #333; color: #777; }
+    .player-score.GREAT { background: rgba(0, 200, 80, 0.85);  color: #fff; }
+    .player-score.OK    { background: rgba(220, 200, 0, 0.85); color: #fff; }
+    .player-score.BAD   { background: rgba(220, 40, 40, 0.85); color: #fff; }
 
     .hidden { display: none !important; }
   </style>
@@ -180,7 +212,12 @@
 
   <div id="video-container">
     <img id="video-frame" alt="Game video" />
-    <div id="border-flash"></div>
+
+    <!-- Score text pop in the centre of the video -->
+    <div id="score-text"></div>
+
+    <!-- Glowing player silhouette in bottom-right corner -->
+    <img id="silhouette-overlay" class="hidden" alt="" />
   </div>
 
   <div id="player-scores"></div>

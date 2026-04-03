@@ -18,6 +18,7 @@ import threading
 import json
 from pathlib import Path
 
+import numpy as np
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Form, BackgroundTasks
 from fastapi.responses import FileResponse
@@ -38,12 +39,25 @@ app.add_middleware(
 
 SONG_DIR = Path("./song")
 
-# --- Global state ---
+# ---------------------------------------------------------------------------
+# Global state  (webcam is NOT opened here — only inside run_game_loop)
+# ---------------------------------------------------------------------------
 _connected: list[WebSocket] = []
 _game_running = False
 _main_loop: asyncio.AbstractEventLoop | None = None
-_webcam = cv2.VideoCapture(0)
 _pose_comparator = PoseComparator()
+
+# COCO skeleton connections (index pairs into the 17-keypoint array)
+_SKELETON = [
+    (5, 7), (7, 9),    # left arm
+    (6, 8), (8, 10),   # right arm
+    (5, 6),            # shoulders
+    (11, 13), (13, 15),# left leg
+    (12, 14), (14, 16),# right leg
+    (11, 12),          # hips
+    (5, 11), (6, 12),  # torso sides
+    (0, 5), (0, 6),    # neck → shoulders
+]
 
 
 # ---------------------------------------------------------------------------
@@ -87,30 +101,28 @@ def ensure_poses_loaded(song_name: str):
     """Re-extract poses from the saved video if not already in memory."""
     try:
         get_huge_shit(song_name)
-        return  # already loaded
+        return
     except KeyError:
         pass
 
     video_path = SONG_DIR / song_name / f"{song_name}.mp4"
-    meta_path = SONG_DIR / song_name / f"{song_name}.meta"
+    meta_path  = SONG_DIR / song_name / f"{song_name}.meta"
     if not video_path.exists() or not meta_path.exists():
         return
 
     print(f"Loading poses for '{song_name}' from disk...")
-    # Reuse the YOLO model already loaded inside PoseComparator instead of
-    # creating a second instance.
     model = _pose_comparator.foregroundPersons.yolo_pose_model
 
-    bpm = int(meta_path.read_text().strip())
-    sample_ms = int(1000 / (bpm / 60))  # ms per beat
+    bpm       = int(meta_path.read_text().strip())
+    sample_ms = int(1000 / (bpm / 60))
 
-    cap = cv2.VideoCapture(str(video_path))
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap         = cv2.VideoCapture(str(video_path))
+    fps         = cap.get(cv2.CAP_PROP_FPS)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     duration_ms = int(frame_count / fps * 1000)
 
     rows: list[list] = [[i, None] for i in range(0, duration_ms, sample_ms)]
-    csv_idx = 0
+    csv_idx      = 0
     total_frames = 0
 
     while cap.isOpened() and csv_idx < len(rows) - 1:
@@ -130,6 +142,47 @@ def ensure_poses_loaded(song_name: str):
     cap.release()
     add_huge_shit(song_name, rows)
     print(f"Loaded {csv_idx} pose keyframes for '{song_name}'")
+
+
+def _draw_silhouette(frame: np.ndarray, people: list) -> str | None:
+    """
+    Draw a glowing cyan skeleton silhouette on a black canvas.
+    Returns base64-encoded JPEG, or None if no people detected.
+    The frontend uses mix-blend-mode:screen so black → transparent.
+    """
+    if not people:
+        return None
+
+    h, w   = frame.shape[:2]
+    out_w, out_h = 320, 240
+    sx, sy = out_w / w, out_h / h
+
+    canvas = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+
+    for (_tid, keypoints) in people:
+        kps = (keypoints * np.array([sx, sy])).astype(int)
+
+        # Draw limb lines
+        for a, b in _SKELETON:
+            if a >= len(kps) or b >= len(kps):
+                continue
+            pa, pb = tuple(kps[a]), tuple(kps[b])
+            if (pa[0] == 0 and pa[1] == 0) or (pb[0] == 0 and pb[1] == 0):
+                continue
+            cv2.line(canvas, pa, pb, (180, 240, 255), 9)
+
+        # Draw joint dots
+        for kp in kps:
+            if kp[0] != 0 or kp[1] != 0:
+                cv2.circle(canvas, tuple(kp), 6, (255, 255, 255), -1)
+
+    # Glow: blur and add back on top
+    if np.any(canvas > 0):
+        glow   = cv2.GaussianBlur(canvas, (23, 23), 0)
+        canvas = cv2.addWeighted(canvas, 1.0, glow, 1.3, 0)
+
+    _, buf = cv2.imencode(".jpg", canvas, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    return base64.b64encode(buf).decode()
 
 
 async def broadcast(message: dict):
@@ -157,20 +210,28 @@ def run_game_loop(song_name: str):
         _game_running = False
         return
 
-    video_path = SONG_DIR / song_name / f"{song_name}.mp4"
-    cap = cv2.VideoCapture(str(video_path))
-    timestamps_and_poses = get_huge_shit(song_name)
-    begin_song_time_ms = int(timestamps_and_poses[0][0])  # ms from start
+    # Open webcam HERE so it's released when the game ends
+    webcam = cv2.VideoCapture(0)
+    if not webcam.isOpened():
+        print("Error: could not open webcam.")
+        _game_running = False
+        return
 
-    video_offset = 0.20  # seconds, for audio-video sync
-    real_start = time.time()
-    prev_beat = 0
+    video_path          = SONG_DIR / song_name / f"{song_name}.mp4"
+    cap                 = cv2.VideoCapture(str(video_path))
+    timestamps_and_poses= get_huge_shit(song_name)
+    begin_song_time_ms  = int(timestamps_and_poses[0][0])
+
+    video_offset = 0.20
+    real_start   = time.time()
+    prev_beat    = 0
 
     shared: dict = {
         "latest_scores": {},
-        "effect_start": None,
-        "face_events": [],
-        "cumulative": {},   # {player_id: int score}
+        "effect_start":  None,
+        "face_events":   [],
+        "cumulative":    {},
+        "silhouette":    None,
     }
     lock = threading.Lock()
 
@@ -178,76 +239,90 @@ def run_game_loop(song_name: str):
         if beat_idx >= len(timestamps_and_poses):
             return
         current_pose = timestamps_and_poses[beat_idx][1]
-        ret, frame = _webcam.read()
+
+        ret, wc_frame = webcam.read()
         if not ret:
             return
-        raw = _pose_comparator.compare_all_players(current_pose, frame)
+
+        # Full analysis: depth filter → YOLO tracking → compare poses
+        people = _pose_comparator.analyze_image(wc_frame)
 
         def to_rating(sim: float) -> str:
-            if sim < 0.45:
-                return "GREAT"
-            if sim < 0.8:
-                return "OK"
+            if sim < 0.45: return "GREAT"
+            if sim < 0.8:  return "OK"
             return "BAD"
 
-        ratings = {str(tid): to_rating(s) for tid, s in raw.items()} if raw else {}
+        ratings = {}
+        if people and current_pose is not None:
+            for track_id, keypoints in people:
+                sim = _pose_comparator.compare_poses(current_pose, keypoints)
+                ratings[str(track_id)] = to_rating(sim)
+
+        silhouette = _draw_silhouette(wc_frame, people)
+
         score_map = {"GREAT": 10, "OK": 5, "BAD": 0}
         with lock:
             shared["latest_scores"] = ratings
-            shared["effect_start"] = time.time()
+            shared["effect_start"]  = time.time()
+            shared["silhouette"]    = silhouette
             shared["face_events"].append((elapsed_s * 1000, ratings))
             for pid, rating in ratings.items():
                 shared["cumulative"][pid] = shared["cumulative"].get(pid, 0) + score_map[rating]
         print(f"Beat {beat_idx}: {ratings}")
 
-    while cap.isOpened() and _game_running:
-        elapsed_s = time.time() - real_start - video_offset
-        elapsed_s = max(0.001, elapsed_s)
-        cap.set(cv2.CAP_PROP_POS_MSEC, elapsed_s * 1000)
-        ret, frame = cap.read()
-        if not ret:
-            break
+    try:
+        while cap.isOpened() and _game_running:
+            elapsed_s = time.time() - real_start - video_offset
+            elapsed_s = max(0.001, elapsed_s)
+            cap.set(cv2.CAP_PROP_POS_MSEC, elapsed_s * 1000)
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        # Encode frame to JPEG base64 for WebSocket transport
-        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 55])
-        frame_b64 = base64.b64encode(buf).decode()
+            _, buf      = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 55])
+            frame_b64   = base64.b64encode(buf).decode()
 
-        beats_per_second = tempo / 60.0
-        current_beat = max(
-            0,
-            math.floor((elapsed_s - begin_song_time_ms / 1000.0) * beats_per_second),
-        )
+            beats_per_second = tempo / 60.0
+            current_beat = max(
+                0,
+                math.floor((elapsed_s - begin_song_time_ms / 1000.0) * beats_per_second),
+            )
 
-        if current_beat > prev_beat:
-            prev_beat = current_beat
-            threading.Thread(
-                target=process_beat,
-                args=(current_beat, elapsed_s),
-                daemon=True,
-            ).start()
+            if current_beat > prev_beat:
+                prev_beat = current_beat
+                threading.Thread(
+                    target=process_beat,
+                    args=(current_beat, elapsed_s),
+                    daemon=True,
+                ).start()
 
-        with lock:
-            scores_snap = dict(shared["latest_scores"])
-            effect_start = shared["effect_start"]
-            cumulative_snap = dict(shared["cumulative"])
+            with lock:
+                scores_snap    = dict(shared["latest_scores"])
+                effect_start   = shared["effect_start"]
+                cumulative_snap= dict(shared["cumulative"])
+                silhouette_b64 = shared["silhouette"]
 
-        effect_ms = (time.time() - effect_start) * 1000 if effect_start else None
+            effect_ms = (time.time() - effect_start) * 1000 if effect_start else None
 
-        msg = {
-            "type": "frame",
-            "frame": frame_b64,
-            "scores": scores_snap,
-            "cumulative": cumulative_snap,
-            "beat": current_beat,
-            "effect_ms": effect_ms,
-        }
+            msg = {
+                "type":       "frame",
+                "frame":      frame_b64,
+                "scores":     scores_snap,
+                "cumulative": cumulative_snap,
+                "beat":       current_beat,
+                "effect_ms":  effect_ms,
+                "silhouette": silhouette_b64,
+            }
 
-        if _main_loop and not _main_loop.is_closed():
-            asyncio.run_coroutine_threadsafe(broadcast(msg), _main_loop)
+            if _main_loop and not _main_loop.is_closed():
+                asyncio.run_coroutine_threadsafe(broadcast(msg), _main_loop)
 
-        time.sleep(1 / 30)  # cap at ~30 fps
+            time.sleep(1 / 30)
+    finally:
+        cap.release()
+        webcam.release()          # <-- webcam shut down here, always
+        print("Webcam released.")
 
-    cap.release()
     set_detection_events(shared["face_events"])
     _game_running = False
     if _main_loop and not _main_loop.is_closed():
@@ -316,10 +391,6 @@ def get_audio(song_name: str):
 
 @app.get("/stats")
 def get_stats():
-    """
-    Returns per-player statistics from the last completed game session.
-    detection_events = [(timestamp_ms, {player_id: rating}), ...]
-    """
     events = get_detection_events()
     if not events:
         return {"players": {}}
@@ -345,13 +416,12 @@ async def ws_endpoint(ws: WebSocket):
     _connected.append(ws)
     try:
         while True:
-            await ws.receive_text()  # keep connection alive
+            await ws.receive_text()
     except WebSocketDisconnect:
         if ws in _connected:
             _connected.remove(ws)
 
 
-# Serve the built TypeScript frontend (after running `npm run build` in frontend/)
 _frontend_dist = Path("frontend/dist")
 if _frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="static")

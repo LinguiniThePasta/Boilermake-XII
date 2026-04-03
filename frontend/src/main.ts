@@ -1,21 +1,23 @@
 // ── DOM refs ──────────────────────────────────────────────────────────────
-const menu        = document.getElementById('menu')!;
-const game        = document.getElementById('game')!;
-const songList    = document.getElementById('song-list')!;
-const uploadForm  = document.getElementById('upload-form')!;
-const playerScores= document.getElementById('player-scores')!;
-const videoFrame  = document.getElementById('video-frame') as HTMLImageElement;
-const borderFlash = document.getElementById('border-flash')!;
-const beatCounter = document.getElementById('beat-counter')!;
-const fpsDisplay  = document.getElementById('fps-display')!;
-const btnStart    = document.getElementById('btn-start') as HTMLButtonElement;
-const uploadStatus= document.getElementById('upload-status')!;
-const gameAudio   = document.getElementById('game-audio') as HTMLAudioElement;
+const menu             = document.getElementById('menu')!;
+const game             = document.getElementById('game')!;
+const songList         = document.getElementById('song-list')!;
+const uploadForm       = document.getElementById('upload-form')!;
+const playerScores     = document.getElementById('player-scores')!;
+const videoFrame       = document.getElementById('video-frame') as HTMLImageElement;
+const scoreText        = document.getElementById('score-text')!;
+const silhouetteOverlay= document.getElementById('silhouette-overlay') as HTMLImageElement;
+const beatCounter      = document.getElementById('beat-counter')!;
+const fpsDisplay       = document.getElementById('fps-display')!;
+const btnStart         = document.getElementById('btn-start') as HTMLButtonElement;
+const uploadStatus     = document.getElementById('upload-status')!;
+const gameAudio        = document.getElementById('game-audio') as HTMLAudioElement;
 
 // ── State ─────────────────────────────────────────────────────────────────
 let selectedSong: string | null = null;
 let ws: WebSocket | null = null;
 let lastFrameMs = 0;
+let scorePopTimeout: ReturnType<typeof setTimeout> | null = null;
 
 interface PlayerState { rating: string; updatedAt: number; }
 const playerStates = new Map<string, PlayerState>();
@@ -25,7 +27,7 @@ const EFFECT_DURATION_MS = 500;
 // ── Song list ─────────────────────────────────────────────────────────────
 async function loadSongs() {
   try {
-    const res = await fetch('/songs');
+    const res  = await fetch('/songs');
     const data = await res.json() as { songs: string[] };
     renderSongList(data.songs);
   } catch {
@@ -60,19 +62,15 @@ function selectSong(name: string) {
 async function startGame() {
   if (!selectedSong) return;
 
-  const res = await fetch(`/start/${selectedSong}`, { method: 'POST' });
+  const res  = await fetch(`/start/${selectedSong}`, { method: 'POST' });
   const data = await res.json() as { status?: string; error?: string };
   if (data.error) { alert(data.error); return; }
 
   menu.style.display = 'none';
   game.style.display = 'block';
 
-  // Play audio from server
   gameAudio.src = `/song/${selectedSong}/audio`;
-  gameAudio.play().catch(() => {
-    // Autoplay may be blocked; user can unmute manually
-    console.warn('Audio autoplay blocked');
-  });
+  gameAudio.play().catch(() => console.warn('Audio autoplay blocked'));
 
   connectWebSocket();
 }
@@ -84,13 +82,14 @@ async function stopGame() {
 }
 
 function showMenu() {
-  game.style.display = 'none';
-  menu.style.display = 'block';
+  game.style.display  = 'none';
+  menu.style.display  = 'block';
   gameAudio.pause();
   ws = null;
   playerStates.clear();
   playerScores.innerHTML = '';
   lastFrameMs = 0;
+  silhouetteOverlay.classList.add('hidden');
   loadSongs();
 }
 
@@ -100,30 +99,30 @@ function connectWebSocket() {
   ws = new WebSocket(`${proto}://${location.host}/ws`);
 
   ws.onmessage = (ev) => {
-    try {
-      handleMessage(JSON.parse(ev.data as string));
-    } catch { /* ignore parse errors */ }
+    try { handleMessage(JSON.parse(ev.data as string)); }
+    catch { /* ignore parse errors */ }
   };
 
   ws.onclose = () => showMenu();
 }
 
 interface FrameMsg {
-  type: 'frame';
-  frame: string;
-  scores: Record<string, string>;
+  type:       'frame';
+  frame:      string;
+  scores:     Record<string, string>;
   cumulative: Record<string, number>;
-  beat: number;
-  effect_ms: number | null;
+  beat:       number;
+  effect_ms:  number | null;
+  silhouette: string | null;
 }
 
 function handleMessage(msg: { type: string } & Partial<FrameMsg>) {
   if (msg.type === 'stopped') { showMenu(); return; }
-  if (msg.type !== 'frame') return;
+  if (msg.type !== 'frame')   return;
 
-  const { frame, scores = {}, cumulative = {}, beat = 0, effect_ms } = msg;
+  const { frame, scores = {}, cumulative = {}, beat = 0, effect_ms, silhouette } = msg;
 
-  // Update video frame
+  // Video frame
   if (frame) videoFrame.src = `data:image/jpeg;base64,${frame}`;
 
   // FPS
@@ -133,11 +132,48 @@ function handleMessage(msg: { type: string } & Partial<FrameMsg>) {
 
   beatCounter.textContent = `Beat: ${beat}`;
 
+  // Silhouette overlay
+  if (silhouette) {
+    silhouetteOverlay.src = `data:image/jpeg;base64,${silhouette}`;
+    silhouetteOverlay.classList.remove('hidden');
+  }
+
+  updateScoreText(scores, effect_ms);
   updatePlayerScores(scores, cumulative, effect_ms);
-  updateBorderFlash(scores, effect_ms);
 }
 
-// ── Per-player score display ──────────────────────────────────────────────
+// ── Score text pop ────────────────────────────────────────────────────────
+const LABEL: Record<string, string> = {
+  GREAT: 'GREAT!',
+  OK:    'GOOD!',
+  BAD:   'BAD!',
+};
+
+function updateScoreText(scores: Record<string, string>, effectMs: number | null) {
+  if (effectMs === null || effectMs >= EFFECT_DURATION_MS) return;
+  // Only trigger on the very first message of a new effect (effectMs is small)
+  if (effectMs > 80) return;
+
+  // Best rating across all players
+  const ratings = Object.values(scores);
+  let best = 'BAD';
+  if (ratings.includes('GREAT')) best = 'GREAT';
+  else if (ratings.includes('OK')) best = 'OK';
+
+  // Remove old animation class, force reflow, re-add
+  scoreText.classList.remove('pop', 'GREAT', 'OK', 'BAD');
+  scoreText.textContent = LABEL[best];
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  scoreText.offsetWidth; // reflow trick to restart animation
+  scoreText.classList.add(best, 'pop');
+
+  if (scorePopTimeout) clearTimeout(scorePopTimeout);
+  scorePopTimeout = setTimeout(() => {
+    scoreText.classList.remove('pop');
+  }, 600);
+}
+
+// ── Per-player score cards ────────────────────────────────────────────────
 function updatePlayerScores(
   scores: Record<string, string>,
   cumulative: Record<string, number>,
@@ -145,24 +181,18 @@ function updatePlayerScores(
 ) {
   const now = Date.now();
 
-  // Record new ratings when the effect is fresh
   if (effectMs !== null && effectMs < EFFECT_DURATION_MS) {
     for (const [id, rating] of Object.entries(scores)) {
       playerStates.set(id, { rating, updatedAt: now });
     }
   }
 
-  // Also ensure players with cumulative scores are tracked
   for (const id of Object.keys(cumulative)) {
-    if (!playerStates.has(id)) {
-      playerStates.set(id, { rating: 'idle', updatedAt: 0 });
-    }
+    if (!playerStates.has(id)) playerStates.set(id, { rating: 'idle', updatedAt: 0 });
   }
 
-  // Render / update a card per known player
   for (const [id, state] of playerStates.entries()) {
-    const age = now - state.updatedAt;
-    const isActive = age < EFFECT_DURATION_MS;
+    const isActive   = now - state.updatedAt < EFFECT_DURATION_MS;
     const totalScore = cumulative[id] ?? 0;
 
     let card = document.getElementById(`player-${id}`);
@@ -173,40 +203,18 @@ function updatePlayerScores(
     }
 
     card.className = `player-score ${isActive ? state.rating : 'idle'}`;
-    card.innerHTML = `<div>P${id}</div><div>${isActive ? state.rating : '...'}</div><div style="font-size:0.9rem;opacity:0.8">${totalScore} pts</div>`;
+    card.innerHTML  = `<div>P${id}</div>`
+                    + `<div>${isActive ? LABEL[state.rating] ?? state.rating : '...'}</div>`
+                    + `<div style="font-size:0.9rem;opacity:0.75">${totalScore} pts</div>`;
   }
 
-  // Remove players not seen for 5 s
+  // Remove players gone for > 5 s
   for (const [id, state] of playerStates.entries()) {
     if (state.updatedAt > 0 && now - state.updatedAt > 5000) {
       playerStates.delete(id);
       document.getElementById(`player-${id}`)?.remove();
     }
   }
-}
-
-// ── Border flash ──────────────────────────────────────────────────────────
-const COLOR: Record<string, string> = {
-  GREAT: '#00cc55',
-  OK: '#ddcc00',
-  BAD: '#dd2222',
-};
-
-function updateBorderFlash(scores: Record<string, string>, effectMs: number | null) {
-  if (effectMs === null || effectMs >= EFFECT_DURATION_MS) {
-    borderFlash.style.borderColor = 'transparent';
-    return;
-  }
-
-  // Show the best rating across all active players
-  const ratings = Object.values(scores);
-  let best = 'BAD';
-  if (ratings.includes('GREAT')) best = 'GREAT';
-  else if (ratings.includes('OK')) best = 'OK';
-
-  const fade = 1 - effectMs / EFFECT_DURATION_MS;
-  borderFlash.style.borderColor = COLOR[best] ?? '#fff';
-  borderFlash.style.opacity = String(fade);
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────
@@ -237,11 +245,10 @@ async function uploadSong() {
 }
 
 // ── Wire up buttons ───────────────────────────────────────────────────────
-document.getElementById('btn-refresh')!.onclick     = loadSongs;
-document.getElementById('btn-show-upload')!.onclick = () => uploadForm.classList.toggle('hidden');
-document.getElementById('btn-start')!.onclick       = startGame;
-document.getElementById('btn-stop')!.onclick        = stopGame;
-document.getElementById('btn-upload')!.onclick      = uploadSong;
+document.getElementById('btn-refresh')!.onclick      = loadSongs;
+document.getElementById('btn-show-upload')!.onclick  = () => uploadForm.classList.toggle('hidden');
+document.getElementById('btn-start')!.onclick        = startGame;
+document.getElementById('btn-stop')!.onclick         = stopGame;
+document.getElementById('btn-upload')!.onclick       = uploadSong;
 
-// Initial load
 loadSongs();
