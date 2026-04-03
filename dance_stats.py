@@ -84,7 +84,7 @@ def display_statistics():
     screen_width, screen_height = screen.get_size()
 
     # Scale the image to fit the screen
-    graph_image = scale_image_to_screen(graph_image, screen_width // 2, screen_height // 2)
+    graph_image = scale_image_to_screen(graph_image, screen_width, screen_height)
 
     # Set up font for text display
     font = pygame.font.SysFont(None, 36)

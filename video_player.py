@@ -63,9 +63,9 @@ def score(pose_keypoints):
     print(similarity)
     if similarity is None:
         return "BAD"
-    if (similarity < 0.6):
+    if (similarity < 0.45):
         return "GREAT"
-    elif (similarity < 0.9):
+    elif (similarity < 0.8):
         return "OK"
     else:
         return "BAD"

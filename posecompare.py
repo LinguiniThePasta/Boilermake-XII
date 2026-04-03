@@ -15,7 +15,7 @@ class PoseComparator:
         self.model = YOLO(model_path)
         self.device = device
         self.foregroundPersons = GetForegroundPersons()
-    
+
     @staticmethod
     def cosine_similarity(vec1, vec2):
         return cosine(vec1, vec2)
@@ -53,10 +53,10 @@ class PoseComparator:
             else:
                 normalized_vectors[key] = None
         return normalized_vectors
-    
+
     def compare_poses(self, pose1, pose2):
         if (len(pose1) < 14 or len(pose2) < 14):
-            pass
+            return 1
         pose1_vectors = self.get_joint_vectors(pose1)
         pose2_vectors = self.get_joint_vectors(pose2)
 
@@ -72,11 +72,11 @@ class PoseComparator:
                 similarity *= 1.5
             cosine_similarities.append(similarity)
             distances.append(math.sqrt(similarity) * 2)
-        
+
         if len(distances) < 2:
             return 1
         return statistics.mean(distances)
-    
+
     def extract_keypoints(self, results):
         keypoints = []
         for result in results:
@@ -105,7 +105,7 @@ class PoseComparator:
         # results = self.model(img_path, device=self.device)
         # keypoints = self.extract_keypoints(results)
         # return keypoints[0] if keypoints else None
-    
+
     def reference_to_cam(self, reference_keypoint, web_img):
         cam_pose = self.analyze_image(web_img)
         if reference_keypoint is None or cam_pose is None:
@@ -116,11 +116,11 @@ class PoseComparator:
             similarity = 1
         print(f"Pose similarity between reference and webcam pose is: {similarity}")
         return similarity
-    
+
     def compare_images(self, img_path_1, img_path_2):
         pose1 = self.analyze_image(img_path_1)
         pose2 = self.analyze_image(img_path_2)
-        
+
         if pose1 is None or pose2 is None:
             #print(f"No pose detected in one or both images: {img_path_1}, {img_path_2}")
             return 1

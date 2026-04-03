@@ -50,10 +50,10 @@ class GetForegroundPersons():
         depth_resized = cv2.resize(depth, (frame.shape[1], frame.shape[0]),
                                      interpolation=cv2.INTER_LINEAR)
 
-        depth_norm = cv2.normalize(depth_resized, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-        depth_colored = cv2.applyColorMap(depth_norm, cv2.COLORMAP_INFERNO)
-        print(f"detect_depth: depth_resized shape: {depth_resized.shape}")
-        print(f"detect_depth: depth_colored shape: {depth_colored.shape}")
+        # depth_norm = cv2.normalize(depth_resized, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+        # depth_colored = cv2.applyColorMap(depth_norm, cv2.COLORMAP_INFERNO)
+        # print(f"detect_depth: depth_resized shape: {depth_resized.shape}")
+        # print(f"detect_depth: depth_colored shape: {depth_colored.shape}")
         return depth_resized
 
     def extract_people_pose(self, frame):
@@ -146,29 +146,33 @@ class GetForegroundPersons():
                 print("Error: Failed to capture image.")
                 break
 
-            depth_raw = self.detect_depth(frame)
+            depth_resized = self.detect_depth(frame)
             pose_results = self.extract_people_pose(frame)
-            filtered_poses = self.intersect(depth_raw, pose_results, frame.shape)
+            filtered_poses = self.intersect(depth_resized, pose_results, frame.shape)
+
+            depth_norm = cv2.normalize(depth_resized, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+            depth_colored = cv2.applyColorMap(depth_norm, cv2.COLORMAP_INFERNO)
 
             print(filtered_poses)
 
             annotated_frame = frame.copy()
 
             # Plot Filtered Poses
-            if len(filtered_poses) > 0:
-                for person_pose in filtered_poses:
-                    person_pose_int = np.round(person_pose).astype(int)
-                    for kp in person_pose_int:
-                        cv2.circle(annotated_frame, tuple(kp), 5, (0, 255, 0), -1)
-
+            # if len(filtered_poses) > 0:
+            #     for person_pose in filtered_poses:
+            #         person_pose_int = np.round(person_pose).astype(int)
+            #         for kp in person_pose_int:
+            #             print(kp)
+                        # x, y = kp[0], kp[1]
+                        # cv2.circle(annotated_frame, (x, y), 5, (0, 255, 0), -1)
 
             current_time = time.time()
             fps = 1 / (current_time - prev_time)
             prev_time = current_time
 
             cv2.putText(annotated_frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.imshow('YOLO Inference', annotated_frame)
-            cv2.imshow('Depth Map', depth_raw)
+            # cv2.imshow('YOLO Inference', annotated_frame)
+            cv2.imshow('Depth Map', depth_colored)
 
             frame_count += 1
 
