@@ -33,11 +33,11 @@ class GetForegroundPersons():
         self.yolo_pose_model.classes = [0]
         self.yolo_pose_model.to(self.DEVICE)
 
-        # Load webcam
-        self.cap = cv2.VideoCapture(source)
-        if not self.cap.isOpened():
-            print("Error: Could not open webcam.")
-            exit()
+        # Webcam is only needed for run() / extract_last_pose().
+        # We defer opening it so callers that only use detect_depth /
+        # extract_people_pose / intersect don't grab the device.
+        self._source = source
+        self.cap = None
 
         # Misc
         self.expand = 20
@@ -67,7 +67,7 @@ class GetForegroundPersons():
 
         people = []
         if not pose_results or not pose_results[0].keypoints or not pose_results[0].boxes:
-            return np.array([])
+            return []
 
         for person_result in pose_results:
             boxes = person_result.boxes
@@ -88,7 +88,15 @@ class GetForegroundPersons():
 
 
 
+    def _open_cap(self):
+        if self.cap is None or not self.cap.isOpened():
+            self.cap = cv2.VideoCapture(self._source)
+            if not self.cap.isOpened():
+                print("Error: Could not open webcam.")
+                exit()
+
     def run(self, frame_num = 10000):
+        self._open_cap()
         prev_time = 0
         cv2.namedWindow('Object Detection', cv2.WINDOW_NORMAL)
         cv2.namedWindow('Depth Map', cv2.WINDOW_NORMAL)
@@ -136,6 +144,7 @@ class GetForegroundPersons():
         cv2.destroyAllWindows()
 
     def extract_last_pose(self, grace_period = 70):
+        self._open_cap()
         frame_count = 0
         filtered_poses = None
         while frame_count <= grace_period:

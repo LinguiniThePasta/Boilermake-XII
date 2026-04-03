@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from posecompare import PoseComparator
-from shared import get_huge_shit, add_huge_shit, set_detection_events
+from shared import get_huge_shit, add_huge_shit, set_detection_events, get_detection_events
 
 
 app = FastAPI()
@@ -97,8 +97,9 @@ def ensure_poses_loaded(song_name: str):
         return
 
     print(f"Loading poses for '{song_name}' from disk...")
-    from ultralytics import YOLO
-    model = YOLO("yolo11n-pose.pt")
+    # Reuse the YOLO model already loaded inside PoseComparator instead of
+    # creating a second instance.
+    model = _pose_comparator.foregroundPersons.yolo_pose_model
 
     bpm = int(meta_path.read_text().strip())
     sample_ms = int(1000 / (bpm / 60))  # ms per beat
@@ -122,7 +123,9 @@ def ensure_poses_loaded(song_name: str):
             csv_idx += 1
             cv2.imwrite("frame.jpg", frame)
             results = model("frame.jpg")
-            rows[csv_idx][1] = results[0].keypoints.xy[0].cpu().numpy()
+            kp = results[0].keypoints
+            if kp is not None and len(kp.xy) > 0:
+                rows[csv_idx][1] = kp.xy[0].cpu().numpy()
 
     cap.release()
     add_huge_shit(song_name, rows)
@@ -163,7 +166,12 @@ def run_game_loop(song_name: str):
     real_start = time.time()
     prev_beat = 0
 
-    shared: dict = {"latest_scores": {}, "effect_start": None, "face_events": []}
+    shared: dict = {
+        "latest_scores": {},
+        "effect_start": None,
+        "face_events": [],
+        "cumulative": {},   # {player_id: int score}
+    }
     lock = threading.Lock()
 
     def process_beat(beat_idx: int, elapsed_s: float):
@@ -183,10 +191,13 @@ def run_game_loop(song_name: str):
             return "BAD"
 
         ratings = {str(tid): to_rating(s) for tid, s in raw.items()} if raw else {}
+        score_map = {"GREAT": 10, "OK": 5, "BAD": 0}
         with lock:
             shared["latest_scores"] = ratings
             shared["effect_start"] = time.time()
             shared["face_events"].append((elapsed_s * 1000, ratings))
+            for pid, rating in ratings.items():
+                shared["cumulative"][pid] = shared["cumulative"].get(pid, 0) + score_map[rating]
         print(f"Beat {beat_idx}: {ratings}")
 
     while cap.isOpened() and _game_running:
@@ -218,6 +229,7 @@ def run_game_loop(song_name: str):
         with lock:
             scores_snap = dict(shared["latest_scores"])
             effect_start = shared["effect_start"]
+            cumulative_snap = dict(shared["cumulative"])
 
         effect_ms = (time.time() - effect_start) * 1000 if effect_start else None
 
@@ -225,6 +237,7 @@ def run_game_loop(song_name: str):
             "type": "frame",
             "frame": frame_b64,
             "scores": scores_snap,
+            "cumulative": cumulative_snap,
             "beat": current_beat,
             "effect_ms": effect_ms,
         }
@@ -299,6 +312,31 @@ def get_audio(song_name: str):
     if wav and wav.exists():
         return FileResponse(str(wav), media_type="audio/wav")
     return {"error": "Audio not available"}
+
+
+@app.get("/stats")
+def get_stats():
+    """
+    Returns per-player statistics from the last completed game session.
+    detection_events = [(timestamp_ms, {player_id: rating}), ...]
+    """
+    events = get_detection_events()
+    if not events:
+        return {"players": {}}
+
+    score_map = {"GREAT": 10, "OK": 5, "BAD": 0}
+    players: dict[str, dict] = {}
+
+    for _ts, ratings in events:
+        if not isinstance(ratings, dict):
+            continue
+        for pid, rating in ratings.items():
+            if pid not in players:
+                players[pid] = {"GREAT": 0, "OK": 0, "BAD": 0, "score": 0}
+            players[pid][rating] = players[pid].get(rating, 0) + 1
+            players[pid]["score"] += score_map.get(rating, 0)
+
+    return {"players": players}
 
 
 @app.websocket("/ws")
