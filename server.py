@@ -210,12 +210,12 @@ def run_game_loop(song_name: str):
         _game_running = False
         return
 
-    # Open webcam HERE so it's released when the game ends
+    # Open webcam HERE so it's released when the game ends.
+    # Non-fatal: video still plays even if webcam is unavailable.
     webcam = cv2.VideoCapture(0)
-    if not webcam.isOpened():
-        print("Error: could not open webcam.")
-        _game_running = False
-        return
+    webcam_ok = webcam.isOpened()
+    if not webcam_ok:
+        print("Warning: could not open webcam — scoring and silhouette disabled.")
 
     video_path          = SONG_DIR / song_name / f"{song_name}.mp4"
     cap                 = cv2.VideoCapture(str(video_path))
@@ -236,7 +236,7 @@ def run_game_loop(song_name: str):
     lock = threading.Lock()
 
     def process_beat(beat_idx: int, elapsed_s: float):
-        if beat_idx >= len(timestamps_and_poses):
+        if not webcam_ok or beat_idx >= len(timestamps_and_poses):
             return
         current_pose = timestamps_and_poses[beat_idx][1]
 
