@@ -112,6 +112,7 @@ interface FrameMsg {
   type: 'frame';
   frame: string;
   scores: Record<string, string>;
+  cumulative: Record<string, number>;
   beat: number;
   effect_ms: number | null;
 }
@@ -120,7 +121,7 @@ function handleMessage(msg: { type: string } & Partial<FrameMsg>) {
   if (msg.type === 'stopped') { showMenu(); return; }
   if (msg.type !== 'frame') return;
 
-  const { frame, scores = {}, beat = 0, effect_ms } = msg;
+  const { frame, scores = {}, cumulative = {}, beat = 0, effect_ms } = msg;
 
   // Update video frame
   if (frame) videoFrame.src = `data:image/jpeg;base64,${frame}`;
@@ -132,18 +133,29 @@ function handleMessage(msg: { type: string } & Partial<FrameMsg>) {
 
   beatCounter.textContent = `Beat: ${beat}`;
 
-  updatePlayerScores(scores, effect_ms);
+  updatePlayerScores(scores, cumulative, effect_ms);
   updateBorderFlash(scores, effect_ms);
 }
 
 // ── Per-player score display ──────────────────────────────────────────────
-function updatePlayerScores(scores: Record<string, string>, effectMs: number | null) {
+function updatePlayerScores(
+  scores: Record<string, string>,
+  cumulative: Record<string, number>,
+  effectMs: number | null,
+) {
   const now = Date.now();
 
-  // Record new scores when effect is fresh
+  // Record new ratings when the effect is fresh
   if (effectMs !== null && effectMs < EFFECT_DURATION_MS) {
     for (const [id, rating] of Object.entries(scores)) {
       playerStates.set(id, { rating, updatedAt: now });
+    }
+  }
+
+  // Also ensure players with cumulative scores are tracked
+  for (const id of Object.keys(cumulative)) {
+    if (!playerStates.has(id)) {
+      playerStates.set(id, { rating: 'idle', updatedAt: 0 });
     }
   }
 
@@ -151,6 +163,7 @@ function updatePlayerScores(scores: Record<string, string>, effectMs: number | n
   for (const [id, state] of playerStates.entries()) {
     const age = now - state.updatedAt;
     const isActive = age < EFFECT_DURATION_MS;
+    const totalScore = cumulative[id] ?? 0;
 
     let card = document.getElementById(`player-${id}`);
     if (!card) {
@@ -160,12 +173,12 @@ function updatePlayerScores(scores: Record<string, string>, effectMs: number | n
     }
 
     card.className = `player-score ${isActive ? state.rating : 'idle'}`;
-    card.textContent = `P${id}: ${isActive ? state.rating : '...'}`;
+    card.innerHTML = `<div>P${id}</div><div>${isActive ? state.rating : '...'}</div><div style="font-size:0.9rem;opacity:0.8">${totalScore} pts</div>`;
   }
 
   // Remove players not seen for 5 s
   for (const [id, state] of playerStates.entries()) {
-    if (now - state.updatedAt > 5000) {
+    if (state.updatedAt > 0 && now - state.updatedAt > 5000) {
       playerStates.delete(id);
       document.getElementById(`player-${id}`)?.remove();
     }

@@ -80,10 +80,8 @@ class PoseComparator:
 
 
             if v1 is None or v2 is None:
+                # At least one joint not visible — skip this joint entirely
                 continue
-            elif v1 is None or v2 is None:
-                # One joint visible, one not, penalize as maximum distance
-                distances.append(weight * 2.0)
             else:
                 similarity = self.cosine_similarity(v1, v2)
                 distances.append(weight * math.sqrt(similarity) * 2)

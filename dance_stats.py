@@ -20,42 +20,59 @@ def scale_image_to_screen(image, screen_width, screen_height):
     
     return image
 
+def _best_rating(event):
+    """Return the best rating across all players in a beat event.
+    event is either a plain string (legacy) or a dict {player_id: rating}."""
+    if isinstance(event, dict):
+        ratings = list(event.values())
+    else:
+        ratings = [event]
+    if "GREAT" in ratings:
+        return "GREAT"
+    if "OK" in ratings:
+        return "OK"
+    return "BAD"
+
+
 def display_statistics():
     # Get detection events
     detection_events = get_detection_events()
     total_events = len(detection_events)
 
-    # Count occurrences of GREAT, GOOD, and BAD
-    great_count = sum(1 for _, event in detection_events if event == "GREAT")
-    good_count = sum(1 for _, event in detection_events if event == "OK")
-    bad_count = sum(1 for _, event in detection_events if event == "BAD")
+    # Flatten to best-per-beat ratings so stats work for both single and multi-player
+    best_ratings = [_best_rating(event) for _, event in detection_events]
+
+    # Count occurrences of GREAT, OK, and BAD
+    great_count = best_ratings.count("GREAT")
+    good_count  = best_ratings.count("OK")
+    bad_count   = best_ratings.count("BAD")
 
     # Compute percentages
     great_percentage = (great_count / total_events * 100) if total_events > 0 else 0
-    good_percentage = (good_count / total_events * 100) if total_events > 0 else 0
-    bad_percentage = (bad_count / total_events * 100) if total_events > 0 else 0
+    good_percentage  = (good_count  / total_events * 100) if total_events > 0 else 0
+    bad_percentage   = (bad_count   / total_events * 100) if total_events > 0 else 0
 
     # Compute cumulative score over time
     times = []
     scores = []
     cumulative_score = 0
 
-    for t, event in detection_events:
+    for (t, _event), rating in zip(detection_events, best_ratings):
         times.append(t)
-        if event == "GREAT":
+        if rating == "GREAT":
             cumulative_score += 10
-        elif event == "OK":
+        elif rating == "OK":
             cumulative_score += 5
         scores.append(cumulative_score)
 
     # Create a matplotlib graph with color-coded segments
     plt.figure(figsize=(6, 4))
 
-    for i in range(0, len(times)-1):
+    for i in range(0, len(times) - 1):
         color = "red"  # Default to BAD
-        if detection_events[i+1][1] == "GREAT":
+        if best_ratings[i + 1] == "GREAT":
             color = "green"
-        elif detection_events[i+1][1] == "OK":
+        elif best_ratings[i + 1] == "OK":
             color = "gold"
 
         plt.plot(times[i:i+2], scores[i:i+2], marker='o', color=color, linewidth=2)

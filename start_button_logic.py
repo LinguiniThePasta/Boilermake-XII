@@ -3,84 +3,69 @@
 
 import yt_dlp
 import cv2
-import csv
-import subprocess
 import numpy as np
+from pathlib import Path
 from ultralytics import YOLO
 from shared import *
 
 
 def upload_video(bpm, start_beat, songname, url):
     model = YOLO("yolo11n-pose.pt")
-    device = "cpu"
 
-    def get_length(input_video):
-        video_capture = cv2.VideoCapture(input_video)
+    song_dir = Path("./song") / songname
+    song_dir.mkdir(parents=True, exist_ok=True)
+    video_path = song_dir / f"{songname}.mp4"
+    meta_path  = song_dir / f"{songname}.meta"
 
-        if not video_capture.isOpened():
-            return -1
-
-        fps = video_capture.get(cv2.CAP_PROP_FPS)
-        frame_count = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-
-        if fps <= 0 or frame_count <= 0:
-            return -1
-
-        duration = int(frame_count / fps)
-        return duration
-
-    # STEP 1:
-    # download youtube video
-
+    # STEP 1: download youtube video
     options = {
-        "outtmpl": "./song/" + songname + "\\" + songname + ".mp4",
+        "outtmpl": str(video_path),
         "format": "best"
     }
     with yt_dlp.YoutubeDL(options) as ydl:
         ydl.download([url])
 
-    # STEP 2:
-    # create csv file with timestamps to sample
+    # STEP 2: build timestamp list (one entry per beat)
+    def get_length(path):
+        cap = cv2.VideoCapture(str(path))
+        if not cap.isOpened():
+            return -1
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        fc  = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+        if fps <= 0 or fc <= 0:
+            return -1
+        return int(fc / fps)
 
-    sample_a_frame_every_x_milliseconds = int(1000 / int(bpm / 60))
+    sample_ms = int(1000 / (bpm / 60))
+    duration_ms = get_length(video_path) * 1000
+    rows = [[i, None] for i in range(start_beat * 1000, duration_ms, sample_ms)]
 
-    filename = "./song/" + songname + "\\" + songname + ".txt"
-    meta_filename = "./song/" + songname + "\\" + songname + ".meta"
-    fields = ['timestamp', 'visual pose reference']
-    rows = [[i, None] for i in
-            range(start_beat * 1000, int(get_length("./song/" + songname + "\\" + songname + ".mp4") * 1000), sample_a_frame_every_x_milliseconds)]
+    # STEP 3: extract a pose keyframe at each beat timestamp
+    cap = cv2.VideoCapture(str(video_path))
+    csv_idx = 0
+    total_frames = 0
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
-    # STEP 3:
-    # gathering poses from video
+    while cap.isOpened() and csv_idx < len(rows) - 1:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        total_frames += 1
+        timestamp = int(1000 * total_frames / fps)
+        if timestamp >= rows[csv_idx][0]:
+            csv_idx += 1
+            cv2.imwrite("frame.jpg", frame)
+            results = model("frame.jpg")
+            # Guard against frames where nobody is detected
+            kp = results[0].keypoints
+            if kp is not None and len(kp.xy) > 0:
+                rows[csv_idx][1] = kp.xy[0].cpu().numpy()
 
-    choreo_capture = cv2.VideoCapture("./song/" + songname + "\\" + songname + ".mp4")
-    csv_rows_checked_off = 0
-    current_csv_row_timestamp_to_look_for = rows[csv_rows_checked_off][0]
-
-    fps = choreo_capture.get(cv2.CAP_PROP_FPS)
-    count_total_frames = 0
-
-    while choreo_capture.isOpened() and csv_rows_checked_off < (len(rows) - 1):
-        frame_exists, curr_frame = choreo_capture.read()
-        count_total_frames += 1
-        timestamp = int(1000 * count_total_frames / fps)
-        if frame_exists:
-            if timestamp >= current_csv_row_timestamp_to_look_for:
-                csv_rows_checked_off += 1
-                current_csv_row_timestamp_to_look_for = rows[csv_rows_checked_off][0]
-                cv2.imwrite("frame.jpg", curr_frame)
-                # frame = cv2.imread("frame.jpg") # read image from file
-                # flipped_frame = cv2.flip(frame, 1) # horizontal flip
-                # cv2.imwrite("frame.jpg", flipped_frame)  # save new image back to file
-                results = model("frame.jpg")
-                rows[csv_rows_checked_off][1] = results[0].keypoints.xy[0].cpu().numpy()
+    cap.release()
 
     add_huge_shit(songname, rows)
     print(get_huge_shit(songname))
-    # with open(filename, 'w') as file:
-    #     file.write("".join(str(rows).splitlines()))
-    with open(meta_filename, 'w') as metafile:
+
+    with open(meta_path, 'w') as metafile:
         metafile.write(str(bpm))
-    #     # csvwriter = csv.writer(csvfile)
-    #     # csvwriter.writerow(fields)
-    #     # csvwriter.writerows(rows)
